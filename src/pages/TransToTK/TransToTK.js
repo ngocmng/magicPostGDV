@@ -519,52 +519,10 @@ const TransToTK = () => {
         onClose={closeDetailsOrder}
         selectedOrderDetails={selectedOrderDetails}
       />
-      <Button onClick={dexie}>xem bảng dexie</Button>
-      <Button onClick={deleteTableAsync}>xóa bảng</Button>
-      <Button onClick={xemOrder}>xem orders</Button>
+      
     </Container>
   );
 };
 
-const addField = () => {
-  //addFieldToCollection("orders", "status", "Đã đến điểm GD nhận")
-  addFieldToDexie();
-}
-
-const xemOrder = () => {
-  dexieDB.orders.toArray()
-  .then(records => {
-    console.log('Dữ liệu trong bảng orders:', records);
-  })
-  .catch(error => {
-    console.error('Lỗi khi lấy dữ liệu orders:', error);
-  });
-}
-
 export default TransToTK;
 
-function dexie() {
-  const tableNames = dexieDB.tables.map(table => table.name);
-
-console.log("Danh sách các bảng trong DexieDB:", tableNames);
-
-const tableSchema = dexieDB.table("shipments").schema;
-
-  console.log(`Thông tin về bảng shipments:`);
-  console.log("Cấu trúc:", tableSchema);
-
-}
-
-async function deleteTableAsync () {
-  //const dexieDB = new Dexie("yourDatabaseName");
-
-  try {
-    
-      // Sử dụng delete() để xóa bảng
-      await dexieDB.table("shipments").delete();
-      console.log(`Bảng shipments đã được xóa thành công.`);
-    } 
-   catch (error) {
-    console.error(`Lỗi khi xóa bảng :`, error);
-  }
-}

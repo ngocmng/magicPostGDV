@@ -34,67 +34,6 @@ dexieDB.transaction('rw', dexieDB.orders, async () => {
   });
 }
 
-const syncFireStoreToDexie = async() => {
-  try {
-    /*const ordersRef = collection(fireStore, "orders");
-    const querySnapshot1 = await getDocs(ordersRef);
-    const newData1 = querySnapshot1.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      }));
-    await dexieDB.orders.bulkAdd(newData1);*/
-
-    const shipmentsRef = collection(fireStore, "shipment");
-    
-    const querySnapshot2 = await getDocs(shipmentsRef);
-    const newData2 = querySnapshot2.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      }));
-    await dexieDB.shipments.bulkAdd(newData2);
-
-  } catch (error) {
-    console.log("Lỗi khi đồng bộ hóa shipment: ", error)
-  }
-
-  try {
-    const orderHistoryRef = collection(fireStore, "orderHistory");
-    const querySnapshot = await getDocs(orderHistoryRef);
-    const newData = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      }));
-    await dexieDB.orderHistory.bulkAdd(newData);
-  } catch (error) {
-    console.log("Lỗi khi đồng bộ hóa history: ", error);
-  }
-
-  dexieDB.orders.toArray()
-  .then(records => {
-    console.log('Dữ liệu trong bảng orders:', records);
-  })
-  .catch(error => {
-    console.error('Lỗi khi lấy dữ liệu orders:', error);
-  });
-
-  dexieDB.shipments.toArray()
-  .then(records => {
-    console.log('Dữ liệu trong bảng shipments:', records);
-  })
-  .catch(error => {
-    console.error('Lỗi khi lấy dữ liệu shipment:', error);
-  });
-
-  dexieDB.orderHistory.toArray()
-  .then(records => {
-    console.log('Dữ liệu trong bảng orderHistory:', records);
-  })
-  .catch(error => {
-    console.error('Lỗi khi lấy dữ liệu orderHistory:', error);
-  });
-}
-
-
 const loadUserState = (email) => {
     localStorage.setItem("email", email);
     const emailName = email.slice(0, email.indexOf("@")).toUpperCase();
@@ -205,11 +144,8 @@ async function addDataToDexieTable(tableName, newData) {
 }
 
 export {dexieDB, loadUserState, clearUserState, 
-        syncFireStoreToDexie,
         deleteDataFromFireStoreAndDexie, deleteDataFromDexieTable,
         updateDataFromFireStoreAndDexie, updateDataFromDexieTable, 
         addDataToFireStoreAndDexie, addDataToDexieTable, 
-      //addFieldToCollection
-      addFieldToDexie
     };
   

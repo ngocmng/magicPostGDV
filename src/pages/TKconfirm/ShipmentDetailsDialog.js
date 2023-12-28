@@ -39,8 +39,6 @@ const ShipmentDetailsDialog = ({
       .toArray()
   );
 
-  
-
 
   useEffect(() => {
     if (data) {

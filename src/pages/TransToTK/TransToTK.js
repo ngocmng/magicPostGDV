@@ -24,7 +24,7 @@ import OrderDetailsDialog from "../OrderDetailsDialog";
 import { dexieDB, syncFireStoreToDexie, updateDataFromDexieTable } from "../../database/cache";
 import { useLiveQuery } from "dexie-react-hooks";
 import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
-import { fireStore } from "../../database/firebase";
+import { fireDB } from "../../database/firebase";
 
 const TransToTK = () => {
   const center = "GD10";
@@ -39,10 +39,10 @@ const TransToTK = () => {
   );
 
   /*const fetchOrders = async() => {
-    //Fetch từ fireStore
+    //Fetch từ fireDB
     /*try {
-      const ordersRef = collection(fireStore, "orders");
-      const orderHistoryRef = collection(fireStore, "orderHistory");
+      const ordersRef = collection(fireDB, "orders");
+      const orderHistoryRef = collection(fireDB, "orderHistory");
       const q1 = query (orderHistoryRef, /*where("currentLocation", "==", center), where("orderStatus", "==", "Đang chờ xử lý"));
       const querySnapshotOrderId = await getDocs(q1);
       const ordersId = querySnapshotOrderId.docs.map((doc) => (doc.id));
@@ -156,8 +156,8 @@ const TransToTK = () => {
         status: "chưa xác nhận"
         //id: "S490",  
       }
-      //thêm vào bảng shipment trong fireStore
-      const docRef = doc(fireStore, "shipment", newData.id);
+      //thêm vào bảng shipment trong firestore
+      const docRef = doc(fireDB, "shipment", newData.id);
       setDoc(docRef, newData);
 
       
@@ -168,13 +168,15 @@ const TransToTK = () => {
         updateDataFromDexieTable("orders", selectedOrders[i], newData);
 
         //update bảng orderHistory
-        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_2");
+        const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_2");
         const querySnapshot = getDoc(docRef);
         const newHistoryLine = {
-          ...(await querySnapshot).data(),
           date: shipment.createDate,
+          orderStatus: "Đã tạo đơn",
+          currentLocation: diemTK,
+          Description: "Chuyển đến điểm " + diemTK,
         }
-        setDoc(docRef, newHistoryLine);
+        setDoc(docRef, newHistoryLine, {merge: true});
       }
       
       //
@@ -182,7 +184,7 @@ const TransToTK = () => {
       setOpenSnackbar(true);
       setShipment(defaultForm);
     } catch (error) {
-      console.error('Loi khi add shipment trong fireStore:', error);
+      console.error('Loi khi add shipment trong fireDB:', error);
     }
     
   };
@@ -289,8 +291,11 @@ const TransToTK = () => {
   };
 
   const formatTime = (time) => {
-    const [date, month, year] = time.split("/");
+    if (time) {
+      const [date, month, year] = time.split("/");
     return new Date(`${year}-${month}-${date}`);
+    }
+    return "";
   };
 
   const filteredOrders = orders.filter((order) => {

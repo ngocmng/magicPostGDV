@@ -24,7 +24,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeliveryDetailsDialog from "./DeliveryDetailsDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
 import { dexieDB } from "../../database/cache";
-import { fireStore } from "../../database/firebase";
+import { fireDB } from "../../database/firebase";
 import { collection, doc, getDocs, getDoc, setDoc, query, where } from "firebase/firestore";
 
 
@@ -90,7 +90,7 @@ const DeliveryConfirm = () => {
   const [selectedStatus, setSelectedStatus] = useState(null);
 
   const getDeliveryBills = async() => {
-    const deliRef = collection(fireStore, "delivery");
+    const deliRef = collection(fireDB, "delivery");
     const q = query(deliRef, where('GDpoint', '==', center), where('status', '==', 'chưa xác nhận'));
     const querySnapshot = await getDocs(q);
     const fetchedDelis = [];
@@ -115,6 +115,7 @@ const DeliveryConfirm = () => {
 
   //Sự kiện Xem chi tiết đơn chuyển; Nhấn VisibilityIcon
   const clickDetailsDelivery = (deliveryDetails) => {
+    //Lấy thông tin order trong đơn giao hàng
     async function getOrdersByIdArray(orderIdArray) {
       try {
         // Mở kết nối đến cơ sở dữ liệu
@@ -204,11 +205,11 @@ const DeliveryConfirm = () => {
   const submit = async() => {
     try {
       for (let i=0; i<selectedDeliveryBills.length; i++) {
-        //cập nhật bảng delivery trong fireStore
+        //cập nhật bảng delivery trong firestore
         const newData = {
           status: "đã xác nhận",
         }
-        const docRef = doc(fireStore, "delivery", selectedDeliveryBills[i]);
+        const docRef = doc(fireDB, "delivery", selectedDeliveryBills[i]);
         setDoc(docRef, newData, {merge: true});
       }
       
@@ -222,8 +223,8 @@ const DeliveryConfirm = () => {
             order.status = "Đã giao thành công";
           })
 
-        //update bảng orderHistory trong fireStore
-        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_5");
+        //update bảng orderHistory trong firestore
+        const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_5");
         //const querySnapshot = getDoc(docRef);
         const newHistoryData = {
           //...querySnapshot.doc.data(),
@@ -279,8 +280,11 @@ const DeliveryConfirm = () => {
   };
 
   const formatTime = (time) => {
-    const [date, month, year] = time.split("/");
-    return new Date(`${year}-${month}-${date}`);
+    if (time) {
+      const [date, month, year] = time.split("/");
+      return new Date(`${year}-${month}-${date}`);
+    }
+    return "";
   };
 
   // Các delivery thỏa mãn bộ lọc

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
-import { fireStore } from "../../database/firebase";
+import { fireDB } from "../../database/firebase";
 import { collection, getDocs} from 'firebase/firestore';
 //import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 //import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -58,6 +58,30 @@ const DeliveryFormDialog = ({
   };
 
   //const [creationDate, setCreationDate] = useState(new Date().toDateString());
+  const genId = async () => {
+    try {
+      // Đọc tất cả các đơn giao hàng để lấy id cuối cùng
+      const deliCollection = collection(fireDB, "delivery");
+      const querySnapshot = await getDocs(deliCollection);
+  
+      // Tìm id cuối cùng
+      let lastId = "";
+      querySnapshot.forEach((doc) => {
+        
+          lastId = doc.id;
+      });
+  
+      // Tăng giá trị của id lên 1
+      const stt = parseInt(lastId.substring(1)) + 1;
+      const newId = `D${stt.toString().padStart(3, "0")}`;
+      setDeliveryBill(values => ({...values, id: newId}));
+    } catch (error) {
+      console.log("Lỗi khi tạo id đơn hàng", error)
+    }
+  }
+  useEffect (() => {
+    genId();
+  }, []);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg">

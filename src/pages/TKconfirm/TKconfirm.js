@@ -24,11 +24,11 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import ShipmentDetailsDialog from "./ShipmentDetailsDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
 import { dexieDB } from "../../database/cache";
-import { fireStore } from "../../database/firebase";
+import { fireDB } from "../../database/firebase";
 import { collection, doc, getDocs, getDoc, setDoc, query, where } from "firebase/firestore";
 
 const TKconfirm = () => {
-  const center = "GD22";
+  const center = "GD23";
   /*const fetchedShipments = [
     {
       shipmentID: "S246",
@@ -89,7 +89,7 @@ const TKconfirm = () => {
   const [selectedStatus, setSelectedStatus] = useState(null);
 
   const getShipments = async() => {
-    const shipmentRef = collection(fireStore, "shipment");
+    const shipmentRef = collection(fireDB, "shipment");
     const q = query(shipmentRef, where('endGDpoint', '==', center), where('status', '==', 'chưa xác nhận'));
     const querySnapshot = await getDocs(q);
     const fetchedShipments = [];
@@ -110,7 +110,7 @@ const TKconfirm = () => {
   useEffect(() => {
     console.log("getShipment:");
     getShipments();
-  }, [center], [dexieDB], [fireStore]);
+  }, [center], [dexieDB], [fireDB]);
 
   //Sự kiện Xem chi tiết đơn chuyển; Nhấn VisibilityIcon
   const clickDetailsShipment = (shipmentDetails) => {
@@ -125,7 +125,7 @@ const TKconfirm = () => {
           .anyOf(orderIdArray)
           .toArray();
     
-        // Xử lý dữ liệu, ví dụ: log ra console
+        // Thêm mảng orders chứa thông tin orders vào shipment
         console.log('Đơn hàng có id thuộc mảng orderIdArray:', data);
         const newShipmentDetails = {
           ...shipmentDetails,
@@ -213,11 +213,11 @@ const TKconfirm = () => {
 const submit = async() => {
     try {
       for (let i=0; i<selectedShipments.length; i++) {
-        //cập nhật bảng shipment trong fireStore
+        //cập nhật bảng shipment trong fireDB
         const newData = {
           status: "đã xác nhận",
         }
-        const docRef = doc(fireStore, "shipment", selectedShipments[i]);
+        const docRef = doc(fireDB, "shipment", selectedShipments[i]);
         setDoc(docRef, newData, {merge: true});
 
       }
@@ -235,14 +235,14 @@ const submit = async() => {
         const newData = {...data, status: "Đang chuyển đến điểm TK gửi"};
         updateDataFromDexieTable("orders", selectedOrders[i], newData);*/
 
-        //update bảng orderHistory trong fireStore
-        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_4");
+        //update bảng orderHistory trong firestore
+        const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_4");
         //const querySnapshot = getDoc(docRef);
         const newHistoryData = {
           //...querySnapshot.doc.data(),
-          currentLocation: center,
-          orderStatus: "Đang vận chuyển",
-          Description: "Đơn hàng chuyển đến điểm giao dịch " + center,
+          //currentLocation: center,
+          orderStatus: "Đã xác nhận",
+          //Description: "Đơn hàng chuyển đến điểm giao dịch " + center,
         }
         setDoc(docRef, newHistoryData, {merge: true});
       }
@@ -294,8 +294,11 @@ const submit = async() => {
   };
 
   const formatTime = (time) => {
-    const [date, month, year] = time.split("/");
+    if (time){
+      const [date, month, year] = time.split("/");
     return new Date(`${year}-${month}-${date}`);
+    }
+    return "";
   };
 
   // Các shipment thỏa mãn bộ lọc
@@ -345,6 +348,7 @@ const submit = async() => {
 
   return (
     <Container>
+      <h3>Xác nhận hàng về từ điểm tập kết</h3>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={2} lg={2}>
           <Autocomplete

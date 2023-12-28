@@ -1,39 +1,21 @@
 import Dexie from "dexie";
-import { fireStore } from "./firebase";
+import { fireDB } from "./firebase";
 import {
   doc, getDoc, getDocs, deleteDoc, updateDoc, setDoc,
   collection, query, where
 } from "firebase/firestore";
 
 const dexieDB = new Dexie("cached");
-dexieDB.version(1).stores({
+dexieDB.version(0).stores({
   GDsystem: "id, name, TKid, TKname",
   TKsystem: "id, name",
   orders: "id, status, regisDate",
   shipment: "shipmentID, createDate, Counts",
-  delivery: "id, GDpoint"
-  //orderHistory: "id, orderID, date, currentLocation",
+  //delivery: "id, GDpoint"
+  orderHistory: "id, orderID, date, currentLocation",
 });
 
-const addFieldToDexie = async() => {
-  const newField = 'status';
 
-// Giá trị mặc định cho trường mới
-const defaultValue = 'Đã đến điểm GD nhận';
-
-// Thêm trường mới vào tất cả các bản ghi của bảng "myTable"
-dexieDB.transaction('rw', dexieDB.orders, async () => {
-  await dexieDB.orders.toCollection().modify(record => {
-    record[newField] = defaultValue;
-  });
-})
-  .then(() => {
-    console.log(`Đã thêm trường mới "${newField}" vào tất cả các bản ghi.`);
-  })
-  .catch(error => {
-    console.error('Lỗi khi thêm trường mới:', error);
-  });
-}
 
 const loadUserState = (email) => {
     localStorage.setItem("email", email);
@@ -46,10 +28,10 @@ const loadUserState = (email) => {
     }
   
     const loadProfile = async () => {
-      const useDoc = await getDoc(doc(fireStore, "GDsystem", localStorage.getItem("center")));
+      const useDoc = await getDoc(doc(fireDB, "GDsystem", localStorage.getItem("center")));
       const data = useDoc.data();
       const TKname = data.TKpoint;
-      const TKsystemRef = collection(fireStore, "TKsystem");
+      const TKsystemRef = collection(fireDB, "TKsystem");
         let q = query(TKsystemRef, where('name', '==', TKname));
         let querySnapshot = await getDocs(q);
         if (querySnapshot.size > 0) {
@@ -74,7 +56,7 @@ const clearUserState = () => {
 
 async function deleteDataFromFireStoreAndDexie(collectionName, id) {
   try {
-    const docRef = doc(fireStore, collectionName, id);
+    const docRef = doc(fireDB, collectionName, id);
     await deleteDoc(docRef);
     await deleteDataFromDexieTable(collectionName, id);
     alert("Xóa tài khoản thành công!");
@@ -99,7 +81,7 @@ async function deleteDataFromDexieTable(tableName, id) {
 
 async function updateDataFromFireStoreAndDexie(collectionName, id, newData) {
   try {
-    const docRef = doc(fireStore, collectionName, id);
+    const docRef = doc(fireDB, collectionName, id);
     await updateDoc(docRef, newData);
     await updateDataFromDexieTable(collectionName, id, newData);
     alert("Cập nhật thông tin tài khoản thành công!");
@@ -119,7 +101,7 @@ async function updateDataFromDexieTable(tableName, id, newData) {
 
 async function addDataToFireStoreAndDexie(collectionName, newData) {
   try {
-    const docRef = doc(fireStore, collectionName, newData.id);
+    const docRef = doc(fireDB, collectionName, newData.id);
     await setDoc(docRef, newData);
     await addDataToDexieTable(collectionName, newData);
     if (collectionName === "orders") {

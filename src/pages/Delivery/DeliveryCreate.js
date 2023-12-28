@@ -21,10 +21,10 @@ import {
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeliveryFormDialog from "./DeliveryFormDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
-import { dexieDB, syncFireStoreToDexie, updateDataFromDexieTable } from "../../database/cache";
+import { dexieDB, updateDataFromDexieTable } from "../../database/cache";
 import { useLiveQuery } from "dexie-react-hooks";
 import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
-import { fireStore } from "../../database/firebase";
+import { fireDB } from "../../database/firebase";
 
 const DeliveryCreate = () => {
   const center = "GD10";
@@ -175,8 +175,8 @@ const DeliveryCreate = () => {
         status: "chưa xác nhận"
         //id: "S490",  
       }
-      //thêm vào bảng delivery trong fireStore
-      const docRef = doc(fireStore, "delivery", newData.id);
+      //thêm vào bảng delivery trong firestore
+      const docRef = doc(fireDB, "delivery", newData.id);
       setDoc(docRef, newData);
 
       
@@ -187,7 +187,7 @@ const DeliveryCreate = () => {
         updateDataFromDexieTable("orders", selectedOrders[i], newData);
 
         //update bảng orderHistory
-        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_5");
+        const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_5");
         const querySnapshot = getDoc(docRef);
         const newHistoryLine = {
           ...(await querySnapshot).data(),
@@ -200,7 +200,7 @@ const DeliveryCreate = () => {
       setOpenSnackbar(true);
       setDeliveryBill(defaultForm);
     } catch (error) {
-      console.error('Loi khi add đơn giao hàng trong fireStore:', error);
+      console.error('Loi khi add đơn giao hàng trong fireDB:', error);
     }
     
   };

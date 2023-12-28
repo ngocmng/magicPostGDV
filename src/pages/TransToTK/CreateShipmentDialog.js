@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
-import { fireStore } from "../../database/firebase";
+import { fireDB } from "../../database/firebase";
 import { collection, getDocs} from 'firebase/firestore';
 //import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 //import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -61,7 +61,7 @@ const ShipmentDialog = ({
   const genId = async () => {
     try {
       // Đọc tất cả các đơn hàng để lấy id của đơn hàng cuối cùng
-      const shipmentCollection = collection(fireStore, "shipment");
+      const shipmentCollection = collection(fireDB, "shipment");
       const querySnapshot = await getDocs(shipmentCollection);
   
       // Tìm id cuối cùng

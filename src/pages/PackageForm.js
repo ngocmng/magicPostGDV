@@ -19,7 +19,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import RegisteredPackages from '../components/Tables/RegisteredPackages';*/
 import { dexieDB, addDataToFireStoreAndDexie, addDataToDexieTable } from '../database/cache';
-import { fireStore } from '../database/firebase';
+import { fireDB } from '../database/firebase';
 import {
   doc,
   setDoc,
@@ -101,7 +101,7 @@ export default function PackageForm() {
   const genId = async () => {
     try {
       // Đọc tất cả các đơn hàng để lấy id của đơn hàng cuối cùng
-      const ordersCollection = collection(fireStore, "orders");
+      const ordersCollection = collection(fireDB, "orders");
       const querySnapshot = await getDocs(ordersCollection);
   
       // Tìm id cuối cùng
@@ -131,7 +131,7 @@ export default function PackageForm() {
     const submit = async() => {
       try {
         /*// Đọc tất cả các đơn hàng để lấy id của đơn hàng cuối cùng
-        const ordersCollection = collection(fireStore, "orders");
+        const ordersCollection = collection(fireDB, "orders");
         const querySnapshot = await getDocs(ordersCollection);
     
         // Tìm id cuối cùng
@@ -153,21 +153,23 @@ export default function PackageForm() {
           cost: c,
           status: "Chưa xử lý"
         }
-        const docRef = doc(fireStore, "orders", newData.id);
+        //Thêm vào bảng orders trong FireStore
+        const docRef = doc(fireDB, "orders", newData.id);
         setDoc(docRef, newData);
         const newDataDexie = {
           ...newData,
           regisDate: regisDate,
         }
+        //Thêm vào bảng orders trong Dexie
         addDataToDexieTable("orders", newDataDexie);
         
         setInputs(defaultForm);
       } catch (error) {
-        console.error('Loi khi add order trong fireStore:', error);
-        alert ("Loi khi add order trong fireStore");
+        console.error('Loi khi add order trong fireDB:', error);
+        alert ("Loi khi add order trong fireDB");
       }
 
-      //Thêm vào orderHistory
+      //Thêm vào orderHistory trong firestore
       try {
         const orderHistory1 = {
           historyID: inputs.id + "_1",
@@ -202,14 +204,25 @@ export default function PackageForm() {
           Description: 0,
         }
 
-        const docRef1 = doc(fireStore, "orderHistory", orderHistory1.historyID);
+        const orderHistory5 = {
+          historyID: inputs.id + "_5",
+          orderId: inputs.id,
+          date: 0,
+          currentLocation: 0,
+          orderStatus: 0,
+          Description: 0,
+        }
+
+        const docRef1 = doc(fireDB, "orderHistory", orderHistory1.historyID);
         setDoc(docRef1, orderHistory1);
-        const docRef2 = doc(fireStore, "orderHistory", orderHistory2.historyID);
+        const docRef2 = doc(fireDB, "orderHistory", orderHistory2.historyID);
         setDoc(docRef2, orderHistory2);
-        const docRef3 = doc(fireStore, "orderHistory", orderHistory3.historyID);
+        const docRef3 = doc(fireDB, "orderHistory", orderHistory3.historyID);
         setDoc(docRef3, orderHistory3);
-        const docRef = doc(fireStore, "orderHistory", orderHistory4.historyID);
-        setDoc(docRef, orderHistory4);
+        const docRef4 = doc(fireDB, "orderHistory", orderHistory4.historyID);
+        setDoc(docRef4, orderHistory4);
+        const docRef = doc(fireDB, "orderHistory", orderHistory5.historyID);
+        setDoc(docRef, orderHistory5);
         alert ("Tạo đơn hàng thành công");
         setInputs(defaultForm);
       } catch (error) {

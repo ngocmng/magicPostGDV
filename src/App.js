@@ -1,7 +1,7 @@
 //import logo from './logo.svg';
 import React, { useState, useEffect } from 'react';
 import { dexieDB, updateDataFromDexieTable } from './database/cache';
-import { fireStore } from './database/firebase';
+import { fireDB } from './database/firebase';
 import { onSnapshot, collection, where, orWhere, query } from 'firebase/firestore';
 import './App.css';
 import GDVapp from './GDVapp';
@@ -37,8 +37,7 @@ function App() {
 
   /*useEffect(() => {
     
-
-    const listener = onSnapshot(collection(fireStore, "orders"), (snapshot) => {
+    const listener = onSnapshot(collection(fireDB, "orders"), (snapshot) => {
       snapshot.docChanges().forEach(async (system) => {
         const systemDoc = system.doc;
         const systemData = systemDoc.data();
@@ -68,9 +67,9 @@ function App() {
   }, []);*/
 
   /*useEffect(() => {
-    //const q = query(collection(fireStore, "shipment"));
+    //const q = query(collection(fireDB, "shipment"));
 
-    const listener = onSnapshot(collection(fireStore, "shipment"), (snapshot) => {
+    const listener = onSnapshot(collection(fireDB, "shipment"), (snapshot) => {
       snapshot.docChanges().forEach(async (system) => {
         const systemDoc = system.doc;
         const systemData = systemDoc.data();

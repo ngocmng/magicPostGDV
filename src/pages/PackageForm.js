@@ -18,7 +18,7 @@ import TableHead from '@mui/material/TableHead';
 //mport TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import RegisteredPackages from '../components/Tables/RegisteredPackages';*/
-import { dexieDB, addDataToDexieTable } from '../database/cache';
+import { dexieDB, addDataToFireStoreAndDexie, addDataToDexieTable } from '../database/cache';
 import { fireStore } from '../database/firebase';
 import {
   doc,
@@ -30,6 +30,9 @@ import {
 
 
 export default function PackageForm() {
+  const center = "GD10";
+  const diemTK = "TK01";
+
   const defaultForm = {
     id: "",
     senderName: "",
@@ -41,13 +44,14 @@ export default function PackageForm() {
     type: "",
     weight: "",
     cost: "",
-    startGDpoint: localStorage.getItem("center"),
-    startTKpoint: localStorage.getItem("diemTK"),
+    startGDpoint: center,
+    startTKpoint: diemTK,
     endTKpoint: "",
     endGDpoint: "",
   }
   const [inputs, setInputs] = useState(defaultForm);
   const [distance, setDistance] = useState("");
+  const [regisDate, setRegisDate] = useState("");
 
   const handleChange = (event) => {
     const name = event.target.name;
@@ -60,6 +64,10 @@ export default function PackageForm() {
     else return weight * distance * 1000;
   }
 
+  const handleDateChange = (event) => {
+    setRegisDate(event.target.value);
+  }
+  
   const handleWeightChange = (event) => {
     const newWeight = event.target.value;
     setInputs(values => ({...values, weight: newWeight}));
@@ -143,14 +151,69 @@ export default function PackageForm() {
           //id,
           weight: w,
           cost: c,
+          status: "Chưa xử lý"
         }
         const docRef = doc(fireStore, "orders", newData.id);
         setDoc(docRef, newData);
-        alert ("Tạo đơn hàng thành công");
+        const newDataDexie = {
+          ...newData,
+          regisDate: regisDate,
+        }
+        addDataToDexieTable("orders", newDataDexie);
+        
         setInputs(defaultForm);
       } catch (error) {
         console.error('Loi khi add order trong fireStore:', error);
         alert ("Loi khi add order trong fireStore");
+      }
+
+      //Thêm vào orderHistory
+      try {
+        const orderHistory1 = {
+          historyID: inputs.id + "_1",
+          orderId: inputs.id,
+          date: regisDate,
+          currentLocation: center,
+          orderStatus: "Đang chờ xử lý",
+          Description: "Đơn hàng nhận tại điểm giao dịch " + center,
+        }
+        const orderHistory2 = {
+          historyID: inputs.id + "_2",
+          orderId: inputs.id,
+          date: 0,
+          currentLocation: 0,
+          orderStatus: 0,
+          Description: 0,
+        }
+        const orderHistory3 = {
+          historyID: inputs.id + "_3",
+          orderId: inputs.id,
+          date: 0,
+          currentLocation: 0,
+          orderStatus: 0,
+          Description: 0,
+        }
+        const orderHistory4 = {
+          historyID: inputs.id + "_4",
+          orderId: inputs.id,
+          date: 0,
+          currentLocation: 0,
+          orderStatus: 0,
+          Description: 0,
+        }
+
+        const docRef1 = doc(fireStore, "orderHistory", orderHistory1.historyID);
+        setDoc(docRef1, orderHistory1);
+        const docRef2 = doc(fireStore, "orderHistory", orderHistory2.historyID);
+        setDoc(docRef2, orderHistory2);
+        const docRef3 = doc(fireStore, "orderHistory", orderHistory3.historyID);
+        setDoc(docRef3, orderHistory3);
+        const docRef = doc(fireStore, "orderHistory", orderHistory4.historyID);
+        setDoc(docRef, orderHistory4);
+        alert ("Tạo đơn hàng thành công");
+        setInputs(defaultForm);
+      } catch (error) {
+        console.log("Lỗi khi tạo đơn hàng")
       }
     }
 
@@ -159,7 +222,7 @@ export default function PackageForm() {
       if (inputs.senderName == "" || inputs.senderPhone == "" || inputs.senderAddress == ""
       || inputs.receiverName == "" || inputs.receiverPhone == "" || inputs.receiverName == ""
       || inputs.type == "" || inputs.weight == "" || inputs.weight == 0 
-      || inputs.endTKpoint == ""|| inputs.endGDpoint == "") {
+      || inputs.endTKpoint == ""|| inputs.endGDpoint == "" || regisDate == "") {
           alert ("Vui lòng nhập đầy đủ thông tin");
           error = 1;
         } 
@@ -186,24 +249,24 @@ export default function PackageForm() {
       autoComplete="off"
       
     >
-          {/*<label>Thời gian ghi nhận:</label>
+          <label>Thời gian ghi nhận:</label>
           <Stack direction="row" spacing={2}>
             <TextField required 
               name="regisDate"
               type="date" 
               size="small" 
-              value={inputs.regisDate || ""}
-              onChange={handleChange}>
+              value={regisDate || ""}
+              onChange={handleDateChange}>
               </TextField>
-            <TextField required 
+            {/*<TextField required 
               name="regisTime"
               type="time" 
               size="small" 
               value={inputs.regisTime || ""}
               onChange={handleChange}>
-              </TextField>
-    </Stack>*/}
+              </TextField>*/}
       
+    </Stack>
       <TextField required 
           name="id"
           label="Mã đơn hàng"

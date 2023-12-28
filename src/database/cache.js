@@ -10,8 +10,9 @@ dexieDB.version(1).stores({
   GDsystem: "id, name, TKid, TKname",
   TKsystem: "id, name",
   orders: "id, status, regisDate",
-  shipments: "id, createDate, Counts",
-  orderHistory: "id, orderID, date, currentLocation",
+  shipment: "shipmentID, createDate, Counts",
+  delivery: "id, GDpoint"
+  //orderHistory: "id, orderID, date, currentLocation",
 });
 
 const addFieldToDexie = async() => {
@@ -60,7 +61,6 @@ const loadUserState = (email) => {
       // const useDocCenter = await getDoc(doc(fireDB, center, idCenter));
       // const dataCenter = useDocCenter.data();
       // console.log(dataCenter);
-      console.log(data);
       
     }
     loadProfile();

@@ -21,19 +21,20 @@ import {
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import ShipmentDialog from "./CreateShipmentDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
-import { dexieDB, addFieldToDexie, syncFireStoreToDexie } from "../../database/cache";
+import { dexieDB, syncFireStoreToDexie, updateDataFromDexieTable } from "../../database/cache";
 import { useLiveQuery } from "dexie-react-hooks";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
 import { fireStore } from "../../database/firebase";
 
 const TransToTK = () => {
   const center = "GD10";
+  const diemTK = "TK01";
   //const [fetchedOrders, setFetchedOrders] = useState([]);
 
   const data = useLiveQuery(() =>
     dexieDB
       .table("orders")
-      .filter((item) => item.startGDpoint === center && item.status == "Đang chờ xử lý")
+      .filter((item) => item.startGDpoint === center && item.status == "Chưa xử lý")
       .toArray()
   );
 
@@ -68,9 +69,9 @@ const TransToTK = () => {
   const [orders, setOrders] = useState([]);
 
   function createData(id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
-    cost, status) {
+    cost, status, regisDate) {
     return {id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
-    cost, status/*, startGDpoint, startTKpoint, endTKpoint, endGDpoint*/ };
+    cost, status, regisDate/*, startGDpoint, startTKpoint, endTKpoint, endGDpoint*/ };
   }
 
   useEffect(() => {
@@ -87,11 +88,12 @@ const TransToTK = () => {
             item.type,
             item.weight,
             item.cost,
-            item.status)
+            item.status, 
+            item.regisDate)
       );
       setOrders(newRows);
     }
-  }, [data]);
+  }, [center]);
 
 
   /*const updatedOrders = data.forEach((order) => ({
@@ -99,14 +101,12 @@ const TransToTK = () => {
     status: "Chưa tạo đơn",
   }));*/
 
-  
-
   const defaultForm = {
     id: "",
     createDate: "",
     Counts: 0,
     startGDpoint: center,
-    startTKpoint: "",
+    startTKpoint: diemTK,
     endTKpoint: 0,
     endGDpoint: 0,
     details: "",
@@ -149,15 +149,47 @@ const TransToTK = () => {
   };
 
   //Xử lý Xác nhận tạo đơn
-  const submit = () => {
-    alert(
-      `Đơn hàng ${shipment.id} tạo lúc ${shipment.createDate} bao gồm ${shipment.details}`
-    );
+  const submit = async() => {
+    try {
+      const newData = {
+        ...shipment,
+        status: "chưa xác nhận"
+        //id: "S490",  
+      }
+      //thêm vào bảng shipment trong fireStore
+      const docRef = doc(fireStore, "shipment", newData.id);
+      setDoc(docRef, newData);
+
+      
+      for (let i = 0; i < selectedOrders.length; i++) {
+        //update dexie
+        const data = orders.find(obj => obj.id === selectedOrders[i]);
+        const newData = {...data, status: "Đang chuyển đến điểm TK gửi"};
+        updateDataFromDexieTable("orders", selectedOrders[i], newData);
+
+        //update bảng orderHistory
+        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_2");
+        const querySnapshot = getDoc(docRef);
+        const newHistoryLine = {
+          ...(await querySnapshot).data(),
+          date: shipment.createDate,
+        }
+        setDoc(docRef, newHistoryLine);
+      }
+      
+      //
+      
+      setOpenSnackbar(true);
+      setShipment(defaultForm);
+    } catch (error) {
+      console.error('Loi khi add shipment trong fireStore:', error);
+    }
+    
   };
 
   const formValidate = () => {
     if (
-      shipment.id == "" ||
+      //shipment.id == "" ||
       shipment.createDate == "" ||
       shipment.Counts == "" ||
       shipment.Counts == 0 ||
@@ -179,7 +211,7 @@ const TransToTK = () => {
       setSelectedOrders([]);
 
       setOpenCreateShipment(false);
-      setOpenSnackbar(true);
+      
     }
   };
 
@@ -262,17 +294,17 @@ const TransToTK = () => {
   };
 
   const filteredOrders = orders.filter((order) => {
-    //const formattedRegisDate = formatTime(order.regisDate);
+    const formattedRegisDate = order.regisDate; //formatTime(order.regisDate);
     return (
       (!selectedOrderID || order.id === selectedOrderID.label) &&
       /*(!selectedTransactionPoint ||
         order.transactionPoint === selectedTransactionPoint.label) &&*/
-      /*(!selectedDate ||
+      (!selectedDate ||
         formattedRegisDate.getDate() === parseInt(selectedDate.label)) &&
       (!selectedMonth ||
         formattedRegisDate.getMonth() + 1 === parseInt(selectedMonth.label)) &&
       (!selectedYear ||
-        formattedRegisDate.getFullYear() === parseInt(selectedYear.label)) &&*/
+        formattedRegisDate.getFullYear() === parseInt(selectedYear.label)) &&
       (!selectedStatus ||
         (order.confirmed ? "Đã tạo đơn" : "Chưa tạo đơn") ===
           selectedStatus.label)
@@ -377,7 +409,7 @@ const TransToTK = () => {
                 onChange={() => {
                   const allSelected = selectedOrders.length === orders.length;
                   setSelectedOrders(
-                    allSelected ? [] : orders.map((order) => order.orderID)
+                    allSelected ? [] : orders.map((order) => order.id)
                   );
                 }}
               />
@@ -470,7 +502,7 @@ const TransToTK = () => {
               <TableCell>{order.id}</TableCell>
               <TableCell>{order.type}</TableCell>
               <TableCell>{order.weight}</TableCell>
-              {/*<TableCell>{order.transactionPoint}</TableCell>*/}
+              
               <TableCell>{order.regisDate}</TableCell>
               <TableCell>
                 <IconButton
@@ -511,7 +543,7 @@ const TransToTK = () => {
         open={openSnackbar}
         autoHideDuration={3000}
         onClose={handleCloseSnackbar}
-        message="Đã tạo đơn thành công"
+        message="Đã tạo đơn chuyển thành công"
       />
 
       <OrderDetailsDialog

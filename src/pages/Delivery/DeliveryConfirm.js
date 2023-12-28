@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Container,
@@ -23,8 +23,13 @@ import {
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeliveryDetailsDialog from "./DeliveryDetailsDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
+import { dexieDB } from "../../database/cache";
+import { fireStore } from "../../database/firebase";
+import { collection, doc, getDocs, getDoc, setDoc, query, where } from "firebase/firestore";
+
 
 const DeliveryConfirm = () => {
+  const center = "GD22";
   const fetchedDeliveryBills = [
     {
       id: "S246",
@@ -72,10 +77,11 @@ const DeliveryConfirm = () => {
     status: "Chưa xác nhận",
   }));
 
-  const [deliveryBills, setDeliveryBills] = useState(displayDeliveryBills);
+  const [deliveryBills, setDeliveryBills] = useState([]);
   const [openDetailsDelivery, setOpenDetailsDelivery] = useState(false); //quản lý trạng thái dialog DeliveryDetails
   const [selectedDeliveryBills, setSelectedDeliveryBills] = useState([]);
   const [selectedDeliveryDetails, setSelectedDeliveryDetails] = useState(null);
+  const [selectedOrders, setSelectedOrders] = useState([]);
   // const [selectedTransactionPoint, setSelectedTransactionPoint] =useState(null);
 
   const [selectedDate, setSelectedDate] = useState(null);
@@ -83,11 +89,73 @@ const DeliveryConfirm = () => {
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
 
+  const getDeliveryBills = async() => {
+    const deliRef = collection(fireStore, "delivery");
+    const q = query(deliRef, where('GDpoint', '==', center), where('status', '==', 'chưa xác nhận'));
+    const querySnapshot = await getDocs(q);
+    const fetchedDelis = [];
+    querySnapshot.forEach((doc) => {
+      fetchedDelis.push({
+        id: doc.id,
+        ...doc.data(),
+      })
+    })
+    for (let i=0; i<fetchedDelis.length; i++) {
+      const orderIdArray = /*(shipmentDetails != null) ? */fetchedDelis[i].details.split(", ").map(id => id.trim());
+      fetchedDelis[i].orderIdArray = orderIdArray;
+    }
+    setDeliveryBills(fetchedDelis);
+    console.log(deliveryBills);
+  }
+
+  useEffect(() => {
+    console.log("getDeli:");
+    getDeliveryBills();
+  }, []);
+
   //Sự kiện Xem chi tiết đơn chuyển; Nhấn VisibilityIcon
   const clickDetailsDelivery = (deliveryDetails) => {
-    setSelectedDeliveryDetails(deliveryDetails);
+    async function getOrdersByIdArray(orderIdArray) {
+      try {
+        // Mở kết nối đến cơ sở dữ liệu
+       // await dexieDB.open();
+    
+        // Thực hiện truy vấn để lấy đơn hàng có id thuộc mảng orderIdArray
+        const data = await dexieDB.orders
+          .where('id')
+          .anyOf(orderIdArray)
+          .toArray();
+    
+        // Xử lý dữ liệu, ví dụ: log ra console
+        console.log('Đơn hàng có id thuộc mảng orderIdArray:', data);
+        const newDeliDetails = {
+          ...deliveryDetails,
+          orders: data,
+        }
+
+        setSelectedDeliveryDetails(newDeliDetails);
+        const newDelis = deliveryBills.map(obj => 
+          (obj.id === deliveryDetails.id) ? newDeliDetails : obj) ;
+  
+        //console.log("Mảng newDelis: ", newDelis);
+        // Cập nhật state với mảng mới
+        setDeliveryBills(newDelis);
+        //console.log("selectedDeliDetails", selectedDeliveryDetails);
+        //console.log("Mảng deli", deliveryBills);
+       
+      } catch (error) {
+        console.error('Lỗi khi truy vấn đơn hàng:', error);
+      } 
+    }
+    if (deliveryDetails.orders == undefined) {
+      getOrdersByIdArray(deliveryDetails.orderIdArray);
+    } else {
+      setSelectedDeliveryDetails(deliveryDetails);
+      //console.log("ko cần dexie")
+    }
     setOpenDetailsDelivery(true);
   };
+
   const closeDetailsDelivery = () => {
     setOpenDetailsDelivery(false);
   };
@@ -102,14 +170,24 @@ const DeliveryConfirm = () => {
   const [openDetailsOrder, setOpenDetailsOrder] = useState(false);
 
   const handleCheckboxChange = (params) => {
-    const newSelectedDeliveryBills = selectedDeliveryBills.includes(params)
-      ? selectedDeliveryBills.filter((id) => id !== params)
-      : [...selectedDeliveryBills, params];
-
+    const newSelectedDeliveryBills = selectedDeliveryBills.includes(params.id)
+      ? selectedDeliveryBills.filter((id) => id !== params.id)
+      : [...selectedDeliveryBills, params.id];
     setSelectedDeliveryBills(newSelectedDeliveryBills);
+    console.log("Đơn giao hàng đc chọn: ", selectedDeliveryBills);
+
+    const orderArray = params.orderIdArray;
+    const newSelectedOrders = selectedOrders.includes(orderArray[0])
+      ? selectedOrders.filter((id) => !orderArray.includes(id))
+      : [...selectedOrders, ...orderArray];
+    setSelectedOrders(newSelectedOrders);
+    console.log("Các DH đc chọn: ", selectedOrders);
   };
 
   const handleConfirmDelivery = () => {
+    if (selectedDeliveryBills.length > 0) {
+      submit();
+    }
     setDeliveryBills((prevDeliveryBills) => {
       const updatedDeliveryBills = prevDeliveryBills.map((delivery) =>
         selectedDeliveryBills.includes(delivery.id) &&
@@ -120,14 +198,48 @@ const DeliveryConfirm = () => {
       return updatedDeliveryBills;
     });
     setSelectedDeliveryBills([]);
+    setSelectedOrders([]);
+  };
+  //Ghi vào CSDL
+  const submit = async() => {
+    try {
+      for (let i=0; i<selectedDeliveryBills.length; i++) {
+        //cập nhật bảng delivery trong fireStore
+        const newData = {
+          status: "đã xác nhận",
+        }
+        const docRef = doc(fireStore, "delivery", selectedDeliveryBills[i]);
+        setDoc(docRef, newData, {merge: true});
+      }
+      
+
+      for (let i = 0; i < selectedOrders.length; i++) {
+        //update dexie bảng orders
+        await dexieDB.table("orders")
+          .where("id")
+          .equals(selectedOrders[i])
+          .modify((order) => {
+            order.status = "Đã giao thành công";
+          })
+
+        //update bảng orderHistory trong fireStore
+        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_5");
+        //const querySnapshot = getDoc(docRef);
+        const newHistoryData = {
+          //...querySnapshot.doc.data(),
+          currentLocation: center,
+          orderStatus: "Đã giao cho người nhận",
+          Description: "Đã giao thành công cho người nhận",
+        }
+        setDoc(docRef, newHistoryData, {merge: true});
+      }
+      
+    } catch (error) {
+      console.error('Loi khi xác nhận giao hàng:', error);
+    }   
   };
 
-  /* const transactionPointList = [
-    { label: "Xuân Thủy" },
-    { label: "Trần Quốc Hoàn" },
-    { label: "Tô Hiệu" },
-    { label: "Phạm Văn Đồng" },
-  ];*/
+  
   const status = [{ label: "Chưa xác nhận" }, { label: "Đã xác nhận" }];
   const year = [
     { label: 2020 },
@@ -278,6 +390,13 @@ const DeliveryConfirm = () => {
                       ? []
                       : deliveryBills.map((delivery) => delivery.id)
                   );
+                  setSelectedOrders(
+                    allSelected
+                      ? []
+                      : [].concat(...deliveryBills.map(deli => deli.orderIdArray))
+                  )
+                  console.log("Đơn chuyển được chọn: ", selectedDeliveryBills);
+                  console.log("Các DH được chọn: ", selectedOrders);
                 }}
               />
             </TableCell>
@@ -341,7 +460,7 @@ const DeliveryConfirm = () => {
               <TableCell>
                 <Checkbox
                   checked={selectedDeliveryBills.includes(delivery.id)}
-                  onChange={() => handleCheckboxChange(delivery.id)}
+                  onChange={() => handleCheckboxChange(delivery)}
                 />
               </TableCell>
               <TableCell>{delivery.id}</TableCell>

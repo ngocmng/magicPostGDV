@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Table,
@@ -21,9 +21,24 @@ import {
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeliveryFormDialog from "./DeliveryFormDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
+import { dexieDB, syncFireStoreToDexie, updateDataFromDexieTable } from "../../database/cache";
+import { useLiveQuery } from "dexie-react-hooks";
+import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
+import { fireStore } from "../../database/firebase";
 
 const DeliveryCreate = () => {
-  const fetchedOrders = [
+  const center = "GD10";
+  const diemTK = "TK01";
+  const [orders, setOrders] = useState([]);
+
+  const data = useLiveQuery(() =>
+    dexieDB
+      .table("orders")
+      .filter((item) => item.endGDpoint == center /*&& item.status == "Đã đến điểm GD nhận"*/)
+      .toArray()
+  );
+
+  /*const fetchedOrders = [
     {
       id: "DH001",
       regisDate: "15/11/2023",
@@ -75,19 +90,44 @@ const DeliveryCreate = () => {
       endTKpoint: "TK05",
       endGDpoint: "GD13",
     },
-  ];
-  const updatedOrders = fetchedOrders.map((order) => ({
+  ];*/
+  /*const updatedOrders = fetchedOrders.map((order) => ({
     ...order,
     status: "Chưa tạo đơn",
-  }));
+  }));*/
 
-  const [orders, setOrders] = useState(updatedOrders);
+  useEffect(() => {
+    if (data) {
+      const newRows = data.map((item) => 
+        createData( item.id,
+            item.senderName,
+            item.senderPhone,
+            item.senderAddress,
+            item.receiverName,
+            item.receiverPhone,
+            item.receiverAddress,
+            
+            item.type,
+            item.weight,
+            item.cost,
+            item.status, 
+            item.regisDate)
+      );
+      setOrders(newRows);
+    }
+  }, [data]);
+
+  function createData(id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
+    cost, status, regisDate) {
+    return {id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
+    cost, status, regisDate/*, startGDpoint, startTKpoint, endTKpoint, endGDpoint*/ };
+  }
 
   const defaultForm = {
     id: "",
     createDate: "",
     counts: 0,
-    GDpoint: localStorage.getItem("center"),
+    GDpoint: center,
     details: "",
   };
   const [deliveryBill, setDeliveryBill] = useState(defaultForm);
@@ -128,10 +168,41 @@ const DeliveryCreate = () => {
   };
 
   //Xử lý Xác nhận tạo đơn
-  const submit = () => {
-    alert(
-      `Đơn hàng ${deliveryBill.id} tạo lúc ${deliveryBill.createDate} bao gồm ${deliveryBill.details}`
-    );
+  const submit = async() => {
+    try {
+      const newData = {
+        ...deliveryBill,
+        status: "chưa xác nhận"
+        //id: "S490",  
+      }
+      //thêm vào bảng delivery trong fireStore
+      const docRef = doc(fireStore, "delivery", newData.id);
+      setDoc(docRef, newData);
+
+      
+      for (let i = 0; i < selectedOrders.length; i++) {
+        //update dexie
+        const data = orders.find(obj => obj.id === selectedOrders[i]);
+        const newData = {...data, status: "Đang giao hàng"};
+        updateDataFromDexieTable("orders", selectedOrders[i], newData);
+
+        //update bảng orderHistory
+        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_5");
+        const querySnapshot = getDoc(docRef);
+        const newHistoryLine = {
+          ...(await querySnapshot).data(),
+          date: deliveryBill.createDate,
+        }
+        setDoc(docRef, newHistoryLine);
+      }
+      
+      
+      setOpenSnackbar(true);
+      setDeliveryBill(defaultForm);
+    } catch (error) {
+      console.error('Loi khi add đơn giao hàng trong fireStore:', error);
+    }
+    
   };
 
   const formValidate = () => {
@@ -157,7 +228,6 @@ const DeliveryCreate = () => {
       setSelectedOrders([]);
 
       setOpenDeliveryForm(false);
-      setOpenSnackbar(true);
     }
   };
 
@@ -235,8 +305,11 @@ const DeliveryCreate = () => {
   };
 
   const formatTime = (time) => {
-    const [date, month, year] = time.split("/");
+    if (time) {
+      const [date, month, year] = time.split("/");
     return new Date(`${year}-${month}-${date}`);
+    }
+    return "";
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -413,13 +486,13 @@ const DeliveryCreate = () => {
               />
             </TableCell>*/}
             <TableCell>
-              <strong>Ngày gửi</strong>
+              <strong>Ngày xác nhận</strong>
               <TableSortLabel
-                active={sortConfig.key === "regisDate"}
+                active={sortConfig.key === "date"}
                 direction={
-                  sortConfig.key === "regisDate" ? sortConfig.direction : "asc"
+                  sortConfig.key === "date" ? sortConfig.direction : "asc"
                 }
-                onClick={() => sortData("regisDate")}
+                onClick={() => sortData("date")}
               />
             </TableCell>
             <TableCell>
@@ -499,7 +572,7 @@ const DeliveryCreate = () => {
         open={openSnackbar}
         autoHideDuration={3000}
         onClose={handleCloseSnackbar}
-        message="Đã tạo đơn thành công"
+        message="Đã tạo đơn giao hàng thành công"
       />
 
       <OrderDetailsDialog

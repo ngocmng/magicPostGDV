@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AppBar,
   Container,
@@ -13,19 +13,23 @@ import {
   TextField,
   Box,
   Autocomplete,
-  Form,
-  FormGroup,
-  TableContainer,
-  Tab,
+  //Form,
+  //FormGroup,
+  //TableContainer,
+  //Tab,
   TableSortLabel,
   Grid,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import ShipmentDetailsDialog from "./ShipmentDetailsDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
+import { dexieDB } from "../../database/cache";
+import { fireStore } from "../../database/firebase";
+import { collection, doc, getDocs, getDoc, setDoc, query, where } from "firebase/firestore";
 
 const TKconfirm = () => {
-  const fetchedShipments = [
+  const center = "GD22";
+  /*const fetchedShipments = [
     {
       shipmentID: "S246",
       createDate: "2023-05-20",
@@ -66,16 +70,17 @@ const TKconfirm = () => {
       endGDpoint: "GD04",
       details: "DH130, DH131, DH132",
     },
-  ];
-  const displayShipments = fetchedShipments.map((shipment) => ({
+  ];*/
+  /*const displayShipments = fetchedShipments.map((shipment) => ({
     ...shipment,
     status: "Chưa xác nhận",
-  }));
+  }));*/
 
-  const [shipments, setShipments] = useState(displayShipments);
+  const [shipments, setShipments] = useState([]);
   const [openDetailsShipment, setOpenDetailsShipment] = useState(false); //quản lý trạng thái dialog ShipmentDetails
   const [selectedShipments, setSelectedShipments] = useState([]);
   const [selectedShipmentDetails, setSelectedShipmentDetails] = useState(null);
+  const [selectedOrders, setSelectedOrders] = useState([]);
   // const [selectedTransactionPoint, setSelectedTransactionPoint] =useState(null);
 
   const [selectedDate, setSelectedDate] = useState(null);
@@ -83,11 +88,80 @@ const TKconfirm = () => {
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
 
+  const getShipments = async() => {
+    const shipmentRef = collection(fireStore, "shipment");
+    const q = query(shipmentRef, where('endGDpoint', '==', center), where('status', '==', 'chưa xác nhận'));
+    const querySnapshot = await getDocs(q);
+    const fetchedShipments = [];
+    querySnapshot.forEach((doc) => {
+      fetchedShipments.push({
+        shipmentID: doc.id,
+        ...doc.data(),
+      })
+    })
+    for (let i=0; i<fetchedShipments.length; i++) {
+      const orderIdArray = /*(shipmentDetails != null) ? */fetchedShipments[i].details.split(", ").map(id => id.trim());
+      fetchedShipments[i].orderIdArray = orderIdArray;
+    }
+    setShipments(fetchedShipments);
+    console.log(shipments);
+  }
+
+  useEffect(() => {
+    console.log("getShipment:");
+    getShipments();
+  }, [center], [dexieDB], [fireStore]);
+
   //Sự kiện Xem chi tiết đơn chuyển; Nhấn VisibilityIcon
   const clickDetailsShipment = (shipmentDetails) => {
-    setSelectedShipmentDetails(shipmentDetails);
+    async function getOrdersByIdArray(orderIdArray) {
+      try {
+        // Mở kết nối đến cơ sở dữ liệu
+       // await dexieDB.open();
+    
+        // Thực hiện truy vấn để lấy đơn hàng có id thuộc mảng orderIdArray
+        const data = await dexieDB.orders
+          .where('id')
+          .anyOf(orderIdArray)
+          .toArray();
+    
+        // Xử lý dữ liệu, ví dụ: log ra console
+        console.log('Đơn hàng có id thuộc mảng orderIdArray:', data);
+        const newShipmentDetails = {
+          ...shipmentDetails,
+          orders: data,
+        }
+
+        setSelectedShipmentDetails(newShipmentDetails);
+        const newShipments = shipments.map(obj => 
+          
+          (obj.shipmentID === shipmentDetails.shipmentID) ? newShipmentDetails : obj) ;
+  
+        console.log("Mảng newshipments: ", newShipments);
+        // Cập nhật state với mảng mới
+        setShipments(newShipments);
+        console.log("selectedShipmentDetails", selectedShipmentDetails);
+        console.log("Mảng shipments", shipments);
+       
+      } catch (error) {
+        console.error('Lỗi khi truy vấn đơn hàng:', error);
+      } finally {
+        // Đóng kết nối khi đã hoàn thành
+        //await dexieDB.close();
+      }
+    }
+
+    if (shipmentDetails.orders == undefined) {
+      //const orderIdArray = (shipmentDetails != null) ? shipmentDetails.details.split(", ").map(id => id.trim()):[];
+      getOrdersByIdArray(shipmentDetails.orderIdArray);
+      
+    } else {
+      setSelectedShipmentDetails(shipmentDetails);
+      console.log("ko cần dexie: ", selectedShipmentDetails);
+    }
     setOpenDetailsShipment(true);
   };
+
   const closeDetailsShipment = () => {
     setOpenDetailsShipment(false);
   };
@@ -101,15 +175,26 @@ const TKconfirm = () => {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [openDetailsOrder, setOpenDetailsOrder] = useState(false);
 
+  //params là 1 shipment
   const handleCheckboxChange = (params) => {
-    const newSelectedShipments = selectedShipments.includes(params)
-      ? selectedShipments.filter((id) => id !== params)
-      : [...selectedShipments, params];
-
+    const newSelectedShipments = selectedShipments.includes(params.shipmentID)
+      ? selectedShipments.filter((id) => id !== params.shipmentID)
+      : [...selectedShipments, params.shipmentID];
     setSelectedShipments(newSelectedShipments);
+    console.log("Đơn chuyển được chọn: ", selectedShipments);
+
+    const orderArray = params.orderIdArray;
+    const newSelectedOrders = selectedOrders.includes(orderArray[0])
+      ? selectedOrders.filter((id) => !orderArray.includes(id))
+      : [...selectedOrders, ...orderArray];
+    setSelectedOrders(newSelectedOrders);
+    console.log("Các DH đc chọn: ", selectedOrders);
   };
 
   const handleConfirmShipment = () => {
+    if (selectedShipments.length > 0) {
+      submit();
+    }
     setShipments((prevShipments) => {
       const updatedShipments = prevShipments.map((shipment) =>
         selectedShipments.includes(shipment.shipmentID) &&
@@ -120,20 +205,62 @@ const TKconfirm = () => {
       return updatedShipments;
     });
     setSelectedShipments([]);
+    setSelectedOrders([]);
+    console.log(selectedOrders);
+    console.log(selectedShipments);
   };
 
-  /* const transactionPointList = [
-    { label: "Xuân Thủy" },
-    { label: "Trần Quốc Hoàn" },
-    { label: "Tô Hiệu" },
-    { label: "Phạm Văn Đồng" },
-  ];*/
+const submit = async() => {
+    try {
+      for (let i=0; i<selectedShipments.length; i++) {
+        //cập nhật bảng shipment trong fireStore
+        const newData = {
+          status: "đã xác nhận",
+        }
+        const docRef = doc(fireStore, "shipment", selectedShipments[i]);
+        setDoc(docRef, newData, {merge: true});
+
+      }
+      
+      
+      for (let i = 0; i < selectedOrders.length; i++) {
+        //update dexie bảng orders
+        await dexieDB.table("orders")
+          .where("id")
+          .equals(selectedOrders[i])
+          .modify((order) => {
+            order.status = "Đã đến điểm GD nhận";
+          })
+        /*const data = orders.find(obj => obj.id === selectedOrders[i]);
+        const newData = {...data, status: "Đang chuyển đến điểm TK gửi"};
+        updateDataFromDexieTable("orders", selectedOrders[i], newData);*/
+
+        //update bảng orderHistory trong fireStore
+        const docRef = doc(fireStore, "orderHistory", selectedOrders[i]+"_4");
+        //const querySnapshot = getDoc(docRef);
+        const newHistoryData = {
+          //...querySnapshot.doc.data(),
+          currentLocation: center,
+          orderStatus: "Đang vận chuyển",
+          Description: "Đơn hàng chuyển đến điểm giao dịch " + center,
+        }
+        setDoc(docRef, newHistoryData, {merge: true});
+      }
+      
+      //
+      
+    } catch (error) {
+      console.error('Loi khi xác nhận:', error);
+    }
+    
+  };
+
   const status = [{ label: "Chưa xác nhận" }, { label: "Đã xác nhận" }];
   const year = [
-    { label: 2020 },
-    { label: 2021 },
-    { label: 2022 },
-    { label: 2023 },
+    { label: "2020" },
+    { label: "2021" },
+    { label: "2022" },
+    { label: "2023" },
   ];
   const createArray = (start, end) => {
     let array = [];
@@ -277,6 +404,15 @@ const TKconfirm = () => {
                       ? []
                       : shipments.map((shipment) => shipment.shipmentID)
                   );
+                  setSelectedOrders(
+                    allSelected
+                      ? []
+                      : [].concat(...shipments.map(shipment => shipment.orderIdArray))
+                  )
+
+                  console.log("Đơn chuyển được chọn: ", selectedShipments);
+                  console.log("Các DH được chọn: ", selectedOrders);
+                  
                 }}
               />
             </TableCell>
@@ -340,7 +476,7 @@ const TKconfirm = () => {
               <TableCell>
                 <Checkbox
                   checked={selectedShipments.includes(shipment.shipmentID)}
-                  onChange={() => handleCheckboxChange(shipment.shipmentID)}
+                  onChange={() => handleCheckboxChange(shipment)}
                 />
               </TableCell>
               <TableCell>{shipment.shipmentID}</TableCell>
@@ -377,6 +513,7 @@ const TKconfirm = () => {
         open={openDetailsShipment}
         onClose={closeDetailsShipment}
         shipmentDetails={selectedShipmentDetails}
+        setShipments={setShipments}
         clickDetailOrder={clickDetailOrder}
       />
       <OrderDetailsDialog

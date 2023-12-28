@@ -18,7 +18,10 @@ const OrderDetailsDialog = ({ open, onClose, selectedOrderDetails }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ bgcolor: "#003e20", color: "#fff", padding: "10px" }}>
-        Chi tiết đơn hàng
+        Chi tiết đơn hàng {selectedOrderDetails && (
+          <Typography variant="body" gutterBottom>
+               {selectedOrderDetails.id}   
+          </Typography>)}
       </DialogTitle>
       <DialogContent dividers>
         {selectedOrderDetails && (

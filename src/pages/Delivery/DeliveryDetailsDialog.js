@@ -21,16 +21,20 @@ import {
 const DeliveryDetailsDialog = ({
   open,
   onClose,
-  shipmentDetails,
+  deliveryDetails,
   clickDetailOrder,
 }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ bgcolor: "#003e29", color: "#fff", padding: "10px" }}>
-        Chi tiết đơn chuyển hàng
+        Chi tiết đơn chuyển hàng {deliveryDetails && (
+          <Typography variant="body" gutterBottom>
+               {deliveryDetails.id}   
+          </Typography>)}
+
       </DialogTitle>
       <DialogContent sx={{ bgcolor: "#edf6f9" }}>
-        {shipmentDetails && (
+        {deliveryDetails && (
           <Box sx={{ padding: "24px" }}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
@@ -54,7 +58,7 @@ const DeliveryDetailsDialog = ({
                   <strong>Số lượng hàng:</strong>
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  {shipmentDetails.Counts}
+                  {deliveryDetails.counts}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -62,7 +66,7 @@ const DeliveryDetailsDialog = ({
                   <strong>Ngày chuyển hàng:</strong>
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  {shipmentDetails.createDate}
+                  {deliveryDetails.createDate}
                 </Typography>
               </Grid>
             </Grid>
@@ -79,7 +83,7 @@ const DeliveryDetailsDialog = ({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {/*{shipmentDetails.orders.map((order, index) => (
+                  {deliveryDetails.orders.map((order, index) => (
                     <TableRow
                       key={order.id}
                       onClick={() => clickDetailOrder(order.details)}
@@ -91,12 +95,12 @@ const DeliveryDetailsDialog = ({
                       }}
                     >
                       <TableCell>{index + 1}</TableCell>
-                      <TableCell>{order.orderID}</TableCell>
+                      <TableCell>{order.id}</TableCell>
                       <TableCell>{order.type}</TableCell>
                       <TableCell>{order.weight}</TableCell>
-                      <TableCell>{order.price}</TableCell>
+                      <TableCell>{order.cost}</TableCell>
                     </TableRow>
-                    ))}*/}
+                    ))}
                 </TableBody>
               </Table>
             </TableContainer>

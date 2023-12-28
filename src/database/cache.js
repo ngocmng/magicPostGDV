@@ -6,7 +6,7 @@ import {
 } from "firebase/firestore";
 
 const dexieDB = new Dexie("cached");
-dexieDB.version(0).stores({
+dexieDB.version(1).stores({
   GDsystem: "id, name, TKid, TKname",
   TKsystem: "id, name",
   orders: "id, status, regisDate",

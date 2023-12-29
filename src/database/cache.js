@@ -5,17 +5,19 @@ import {
   collection, query, where
 } from "firebase/firestore";
 
-const dexieDB = new Dexie("cached");
-dexieDB.version(1).stores({
-  GDsystem: "id, name, TKid, TKname",
+const dexieDB = new Dexie("cachedUser38");
+dexieDB.version(2).stores({
+  GDsystem: "id, name",
   TKsystem: "id, name",
-  orders: "id, status, regisDate",
-  shipment: "shipmentID, createDate, Counts",
-  //delivery: "id, GDpoint"
-  orderHistory: "id, orderID, date, currentLocation",
+  //LeadGDacc: "id",
+  //LeadTKacc: "id",
+  //NVTKacc: "id",
+  //GDVacc: "id",
+  orderHistory: "id, orderID",
+  orders: "id, status, startGDpoint, endGDpoint",
+  shipment: "id, status, startGDpoint, startTKpoint, endTKpoint, endGDpoint",
+  delivery: "id, status, GDpoint",
 });
-
-
 
 const loadUserState = (email) => {
     localStorage.setItem("email", email);

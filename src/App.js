@@ -16,86 +16,130 @@ function App() {
 
   const [logIn, setLogin] = useState(true);
 
-  console.log(dexieDB);
+  console.log(dexieDB.shipment.toArray());
+
+  //console.log(dexieDB);
+  /*useEffect(() => {
+    const listener = onSnapshot(collection(fireDB, "GDsystem"), (snapshot) => {
+      snapshot.docChanges().forEach(async (system) => {
+        const systemDoc = system.doc;
+        const systemData = systemDoc.data();
+        await dexieDB.table("GDsystem").put({
+          id: systemData.id,
+          name: systemData.name,
+          
+          TKpoint: systemData.TKpoint,
+        });
+        return;
+      });
+      //logPackageDataFromDexieDB();
+    });
+    return () => listener();
+  }, []);
 
   useEffect(() => {
-    /*dexieDB.table("orders")
-    .where("id")
-    .equals("DH279")
-    .modify((record) => {
-      record.status = "Đang chuyển đến điểm GD nhận";
+    const listener = onSnapshot(collection(fireDB, "TKsystem"), (snapshot) => {
+      snapshot.docChanges().forEach(async (system) => {
+        const systemDoc = system.doc;
+        const systemData = systemDoc.data();
+        await dexieDB.table("TKsystem").put({
+          id: systemData.id,
+          name: systemData.name,
+          
+        });
+        return;
+      });
+      //logPackageDataFromDexieDB();
     });
-    //.update({ status: "Đang chuyển đến điểm GD nhận" });*/
+    return () => listener();
+  }, []);
 
-    dexieDB.table("orders").toArray().then(result => {
-      console.log(result);
-    })
-    .catch(error => {
-      console.error('Lỗi khi truy vấn dữ liệu:', error);
-    });
-  }, [])
-
-  /*useEffect(() => {
-    
+  useEffect(() => {
     const listener = onSnapshot(collection(fireDB, "orders"), (snapshot) => {
       snapshot.docChanges().forEach(async (system) => {
         const systemDoc = system.doc;
         const systemData = systemDoc.data();
         await dexieDB.table("orders").put({
-              id: systemData.id,
-              senderName: systemData.senderName,
-              senderPhone: systemData.senderPhone,
-              senderAddress: systemData.senderAddress,
-              receiverName: systemData.receiverName,
-              receiverPhone: systemData.receiverPhone,
-              receiverAddress: systemData.receiverAddress,
-              startGDpoint: systemData.startGDpoint,
-              startTKpoint: systemData.startTKpoint,
-              endTKpoint: systemData.endTKpoint,
-              endGDpoint: systemData.endGDpoint,
-              type: systemData.type,
-              weight: systemData.weight,
-              cost: systemData.cost,
-              status: systemData.status,
-            });
+          id: systemData.id,
+          senderName: systemData.senderName,
+          senderPhone: systemData.senderPhone,
+          senderAddress: systemData.senderAddress,
+          receiverName: systemData.receiverName,
+          receiverPhone: systemData.receiverPhone,
+          receiverAddress: systemData.receiverAddress,
+          type: systemData.type,
+          weight: systemData.weight,
+          cost: systemData.cost,
+          startGDpoint: systemData.startGDpoint,
+          startTKpoint: systemData.startTKpoint,
+          endTKpoint: systemData.endTKpoint,
+          endGDpoint: systemData.endGDpoint,
+          status: systemData.status,
+        });
         return;
       });
-      console.log(dexieDB);
+      console.log("data from DexieDB: orders", dexieDB.table("orders").toArray());
       //logPackageDataFromDexieDB();
     });
     return () => listener();
-  }, []);*/
+  }, []);
 
-  /*useEffect(() => {
-    //const q = query(collection(fireDB, "shipment"));
+  useEffect(() => {
+    const listener = onSnapshot(
+      collection(fireDB, "orderHistory"),
+      (snapshot) => {
+        snapshot.docChanges().forEach(async (system) => {
+          const systemDoc = system.doc;
+          const systemData = systemDoc.data();
+          await dexieDB.table("orderHistory").put({
+            id: systemData.historyID,
+            orderID: systemData.orderID,
+            date: systemData.date,
+            currentLocation: systemData.currentLocation,
+            Description: systemData.Description,
+            orderStatus: systemData.orderStatus,
+          });
+          return;
+        });
+        console.log("data from DexieDB: lịch sử", dexieDB.table("orderHistory").toArray());
+        //logPackageDataFromDexieDB();
+      }
+    );
+    return () => listener();
+  }, []);
 
+  
+
+  useEffect(() => {
     const listener = onSnapshot(collection(fireDB, "shipment"), (snapshot) => {
       snapshot.docChanges().forEach(async (system) => {
         const systemDoc = system.doc;
         const systemData = systemDoc.data();
         await dexieDB.table("shipment").put({
-              id: systemData.id,
-              createDate: systemData.createDate,
-              Counts : systemData.Counts,
-              startGDpoint: systemData.startGDpoint,
-              startTKpoint: systemData.startTKpoint,
-              endTKpoint: systemData.endTKpoint,
-              endGDpoint: systemData.endGDpoint,
-              details: systemData.details,
-            });
+          id: systemData.shipmentID,
+          date: systemData.createDate,
+          counts: systemData.Counts,
+          ordersList: systemData.details,
+          startGDpoint: systemData.startGDpoint,
+          startTKpoint: systemData.startTKpoint,
+          endTKpoint: systemData.endTKpoint,
+          endGDpoint: systemData.endGDpoint,
+  //        startGDpointName: systemData.startGDpoint,
+  //        startTKpointName: systemData.startTKpoint,
+  //        endTKpointName: systemData.endTKpoint,
+  //        endGDpointName: systemData.endGDpoint,
+          status: systemData.status,
+        });
         return;
       });
-
-      dexieDB.table("shipment").toArray().then(result => {
-        console.log(result);
-      })
-      .catch(error => {
-        console.error('Lỗi khi truy vấn dữ liệu:', error);
-      });
-      //logPackageDataFromDexieDB();
+      // logPackageDataFromDexieDB();
+       console.log("data from DexieDB: shipment", dexieDB.table("shipment").toArray());
     });
     return () => listener();
-  }, []);*/
+  }, []);
+
+*/
+
 
   
   return (

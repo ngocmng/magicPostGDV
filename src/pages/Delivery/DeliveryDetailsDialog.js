@@ -86,7 +86,7 @@ const DeliveryDetailsDialog = ({
                   {deliveryDetails.orders.map((order, index) => (
                     <TableRow
                       key={order.id}
-                      onClick={() => clickDetailOrder(order.details)}
+                      onClick={() => clickDetailOrder(order)}
                       sx={{
                         "&:hover": {
                           backgroundColor: "#e8f5e9",

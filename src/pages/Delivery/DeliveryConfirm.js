@@ -13,24 +13,23 @@ import {
   TextField,
   Box,
   Autocomplete,
-  Form,
-  FormGroup,
-  TableContainer,
+  
   Tab,
   TableSortLabel,
   Grid,
+  Stack,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeliveryDetailsDialog from "./DeliveryDetailsDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
-import { dexieDB } from "../../database/cache";
+import { dexieDB, updateDataFromFireStoreAndDexie } from "../../database/cache";
 import { fireDB } from "../../database/firebase";
 import { collection, doc, getDocs, getDoc, setDoc, query, where } from "firebase/firestore";
 
 
 const DeliveryConfirm = () => {
-  const center = "GD22";
-  const fetchedDeliveryBills = [
+  const center = "GD10";
+  /*const fetchedDeliveryBills = [
     {
       id: "S246",
       createDate: "2023-05-20",
@@ -75,23 +74,25 @@ const DeliveryConfirm = () => {
   const displayDeliveryBills = fetchedDeliveryBills.map((bill) => ({
     ...bill,
     status: "Chưa xác nhận",
-  }));
+  }));*/
 
   const [deliveryBills, setDeliveryBills] = useState([]);
   const [openDetailsDelivery, setOpenDetailsDelivery] = useState(false); //quản lý trạng thái dialog DeliveryDetails
   const [selectedDeliveryBills, setSelectedDeliveryBills] = useState([]);
   const [selectedDeliveryDetails, setSelectedDeliveryDetails] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
-  // const [selectedTransactionPoint, setSelectedTransactionPoint] =useState(null);
 
+  const [filterByID, setFilterByID] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
 
+
   const getDeliveryBills = async() => {
     const deliRef = collection(fireDB, "delivery");
-    const q = query(deliRef, where('GDpoint', '==', center), where('status', '==', 'chưa xác nhận'));
+    const q = query(deliRef, where('Gdpoint', '==', center), 
+              where('status', '==', 'chưa xác nhận'));
     const querySnapshot = await getDocs(q);
     const fetchedDelis = [];
     querySnapshot.forEach((doc) => {
@@ -127,7 +128,6 @@ const DeliveryConfirm = () => {
           .anyOf(orderIdArray)
           .toArray();
     
-        // Xử lý dữ liệu, ví dụ: log ra console
         console.log('Đơn hàng có id thuộc mảng orderIdArray:', data);
         const newDeliDetails = {
           ...deliveryDetails,
@@ -185,32 +185,44 @@ const DeliveryConfirm = () => {
     console.log("Các DH đc chọn: ", selectedOrders);
   };
 
-  const handleConfirmDelivery = () => {
+  // 2 hàm xử lý giao thành công/ không thành công
+  const handleConfirmDelivery = async() => {
     if (selectedDeliveryBills.length > 0) {
-      submit();
+      await submit(true);
     }
-    setDeliveryBills((prevDeliveryBills) => {
-      const updatedDeliveryBills = prevDeliveryBills.map((delivery) =>
-        selectedDeliveryBills.includes(delivery.id) &&
-        delivery.status === "Chưa xác nhận"
-          ? { ...delivery, status: "Đã xác nhận", confirmed: true }
-          : delivery
-      );
-      return updatedDeliveryBills;
-    });
+    const updatedDelis = deliveryBills.map(deli =>
+      selectedDeliveryBills.includes(deli.id) ? { ...deli, status: "thành công" } : deli
+    );
+    setDeliveryBills(updatedDelis);
+
     setSelectedDeliveryBills([]);
     setSelectedOrders([]);
   };
+
+  const handleUnsuccessfulDelivery = async() => {
+    if (selectedDeliveryBills.length > 0) {
+      await submit(false);
+    }
+    const updatedDelis = deliveryBills.map(deli =>
+      selectedDeliveryBills.includes(deli.id) ? { ...deli, status: "không thành công" } : deli
+    );
+    setDeliveryBills(updatedDelis);
+    setSelectedDeliveryBills([]);
+    setSelectedOrders([]);
+  }
+
   //Ghi vào CSDL
-  const submit = async() => {
+  const submit = async(isSuccess) => {
+    const msg = isSuccess ? "thành công" : "không thành công"
     try {
       for (let i=0; i<selectedDeliveryBills.length; i++) {
         //cập nhật bảng delivery trong firestore
         const newData = {
-          status: "đã xác nhận",
+          status: msg,
         }
         const docRef = doc(fireDB, "delivery", selectedDeliveryBills[i]);
         setDoc(docRef, newData, {merge: true});
+        updateDataFromFireStoreAndDexie("delivery", selectedDeliveryBills[i], newData);
       }
       
 
@@ -220,20 +232,23 @@ const DeliveryConfirm = () => {
           .where("id")
           .equals(selectedOrders[i])
           .modify((order) => {
-            order.status = "Đã giao thành công";
+            order.status = "Đã giao" + msg + " cho người nhận";
           })
 
         //update bảng orderHistory trong firestore
-        const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_5");
-        //const querySnapshot = getDoc(docRef);
+
+        /*const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_5");
+        //const querySnapshot = getDoc(docRef);*/
         const newHistoryData = {
-          //...querySnapshot.doc.data(),
-          currentLocation: center,
-          orderStatus: "Đã giao cho người nhận",
-          Description: "Đã giao thành công cho người nhận",
+          
+          currentLocation: "",
+          orderStatus: "Đã giao" + msg + " cho người nhận",
+          Description: "Đã giao" + msg + " cho người nhận",
         }
-        setDoc(docRef, newHistoryData, {merge: true});
+        updateDataFromFireStoreAndDexie("orderHistory", selectedOrders[i]+"_5", 
+        newHistoryData);
       }
+      alert ("Đã xác nhận đơn giao " + msg);
       
     } catch (error) {
       console.error('Loi khi xác nhận giao hàng:', error);
@@ -241,7 +256,8 @@ const DeliveryConfirm = () => {
   };
 
   
-  const status = [{ label: "Chưa xác nhận" }, { label: "Đã xác nhận" }];
+  const deliveryID = deliveryBills.map((b) => ({ label: b.id }));
+  const status = [{ label: "Chưa xác nhận" }, { label: "Thành công" }, { label: "Không thành công" }];
   const year = [
     { label: 2020 },
     { label: 2021 },
@@ -251,7 +267,7 @@ const DeliveryConfirm = () => {
   const createArray = (start, end) => {
     let array = [];
     for (let i = start; i <= end; i++) {
-      let object = { label: i };
+      let object = { label: i.toString() };
       array.push(object);
     }
     return array;
@@ -262,6 +278,10 @@ const DeliveryConfirm = () => {
   /*  const handleTransactionPointChange = (event, value) => {
     setSelectedTransactionPoint(value);
   };*/
+
+  const handleDeliveryIDChange = (event, value) => {
+    setFilterByID(value);
+  };
 
   const handleDateChange = (event, value) => {
     setSelectedDate(value);
@@ -292,6 +312,8 @@ const DeliveryConfirm = () => {
     const formattedDate = formatTime(delivery.createDate);
 
     return (
+      (!filterByID || 
+        delivery.id === filterByID.label) &&
       (!selectedDate ||
         formattedDate.getDate() === parseInt(selectedDate.label)) &&
       (!selectedMonth ||
@@ -299,9 +321,8 @@ const DeliveryConfirm = () => {
       (!selectedYear ||
         formattedDate.getFullYear() === parseInt(selectedYear.label)) &&
       (!selectedStatus ||
-        (delivery.confirmed ? "Đã xác nhận" : "Chưa xác nhận") ===
-          selectedStatus.label)
-    );
+        delivery.status === selectedStatus.label
+      ))
   });
 
   const [sortConfig, setSortConfig] = useState({
@@ -336,6 +357,21 @@ const DeliveryConfirm = () => {
     <Container>
       <h2>Xác nhận giao hàng</h2>
       <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={2} lg={2}>
+        
+          <Autocomplete
+            disablePortal
+            options={deliveryID}
+            value={filterByID}
+            onChange={handleDeliveryIDChange}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Đơn giao hàng"
+              />
+            )}
+          />
+        </Grid>
         <Grid item xs={12} sm={6} md={2} lg={2}>
           <Autocomplete
             disablePortal
@@ -378,7 +414,7 @@ const DeliveryConfirm = () => {
             )}
           />
         </Grid>
-      </Grid>
+            </Grid>
 
       <Table>
         <TableHead>
@@ -485,7 +521,10 @@ const DeliveryConfirm = () => {
         </TableBody>
       </Table>
 
+     
+
       <Box mt={2} mb={2}>
+        <Stack direction="row" spacing={2}>
         <Button
           variant="contained"
           style={{ backgroundColor: "#4CAF50", color: "#fff" }}
@@ -493,9 +532,22 @@ const DeliveryConfirm = () => {
           onMouseOut={(e) => (e.target.style.backgroundColor = "#4CAF50")}
           onClick={handleConfirmDelivery}
         >
-          Xác nhận
+          Giao thành công
         </Button>
+
+        <Button
+          variant="contained"
+          style={{ backgroundColor: "#4CAF50", color: "#fff" }}
+          onMouseOver={(e) => (e.target.style.backgroundColor = "#003e29")}
+          onMouseOut={(e) => (e.target.style.backgroundColor = "#4CAF50")}
+          onClick={handleUnsuccessfulDelivery}
+        >
+          Giao không thành công
+        </Button>
+        </Stack>
       </Box>
+
+      
 
       <DeliveryDetailsDialog
         open={openDetailsDelivery}

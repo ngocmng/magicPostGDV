@@ -17,84 +17,79 @@ import {
   Paper,
   Typography,
   Snackbar,
+  Pagination,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeliveryFormDialog from "./DeliveryFormDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
-import { dexieDB, updateDataFromDexieTable } from "../../database/cache";
+import { dexieDB, updateDataFromDexieTable, addDataToFireStoreAndDexie, updateDataFromFireStoreAndDexie } from "../../database/cache";
 import { useLiveQuery } from "dexie-react-hooks";
 import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
 import { fireDB } from "../../database/firebase";
 
+
+
 const DeliveryCreate = () => {
   const center = "GD10";
-  const diemTK = "TK01";
+  
+
+  const defaultForm = {
+    id: "",
+    createDate: "",
+    counts: 0,
+    GDpoint: center,
+    details: "",
+  };
+
   const [orders, setOrders] = useState([]);
+  const [deliveryBill, setDeliveryBill] = useState(defaultForm);
+
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState([]);
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [openDeliveryForm, setOpenDeliveryForm] = useState(false);
+  const [openDetailsOrder, setOpenDetailsOrder] = useState(false);
+  const [selectedOrderID, setSelectedOrderID] = useState(null);
+
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState(null);
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const data = useLiveQuery(() =>
     dexieDB
       .table("orders")
-      .filter((item) => item.endGDpoint == center /*&& item.status == "Đã đến điểm GD nhận"*/)
+      .filter((item) => item.endGDpoint == center && 
+                (item.status == "Đã đến điểm GD nhận" 
+                || item.status == "Đang giao hàng"
+                || item.status.startsWith("Đã giao")))
       .toArray()
   );
 
-  /*const fetchedOrders = [
-    {
-      id: "DH001",
-      regisDate: "15/11/2023",
-      senderName: "Phạm Hồng Thuận",
-      senderPhone: "0892209351",
-      senderAddress: "Số 78, Đường Lý Thường Kiệt, Ba Đình, Hà Nội",
-      receiverName: "Đỗ Minh Anh",
-      receiverPhone: "0965489285",
-      receiverAddress: "Số 78, Đường Ngọc Khánh, Thủ Đức, Hồ Chí Minh",
-      type: "Tài liệu",
-      weight: 1,
-      cost: 24431,
-      startGDpoint: "GD01",
-      startTKpoint: "TK01",
-      endTKpoint: "TK02",
-      endGDpoint: "GD16",
-    },
-    {
-      id: "DH002",
-      regisDate: "15/12/2023",
-      senderName: "Đỗ Minh Anh",
-      senderPhone: "0766665869",
-      senderAddress: "Số 100, Đường Hai Bà Trưng, Ba Đình, Hà Nội",
-      receiverName: "Hoàng Thị Ly",
-      receiverPhone: "0353258682",
-      receiverAddress: "Số 69, Đường Trần Văn Sắc, Hải Châu, Đà Nẵng",
-      type: "Hàng hóa",
-      weight: 0.8,
-      cost: 25302,
-      startGDpoint: "GD01",
-      startTKpoint: "TK01",
-      endTKpoint: "TK05",
-      endGDpoint: "GD13",
-    },
-    {
-      id: "DH003",
-      regisDate: "16/11/2023",
-      senderName: "Nguyễn Thị Thu",
-      senderPhone: "0631032868",
-      senderAddress: "Số 29, Đường Nguyễn Thiện Thành, Ba Đình, Hà Nội",
-      receiverName: "Nguyễn Trung Nguyên",
-      receiverPhone: "0758105820",
-      receiverAddress: "Số 82, Đường Bà Triệu, Hải Châu, Đà Nẵng",
-      type: "Tài liệu",
-      weight: 1.4,
-      cost: 48605,
-      startGDpoint: "GD01",
-      startTKpoint: "TK01",
-      endTKpoint: "TK05",
-      endGDpoint: "GD13",
-    },
-  ];*/
-  /*const updatedOrders = fetchedOrders.map((order) => ({
-    ...order,
-    status: "Chưa tạo đơn",
-  }));*/
+  const orderHistories = useLiveQuery(() =>
+    dexieDB
+      .table("orderHistory")
+      .filter((item) => item.historyID.endsWith("4") && item.currentLocation == center) 
+  );
+
+  function createData(id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
+    cost, status, regisDate) {
+      if (regisDate == undefined) {
+        const a = ["2023-12-27", "2023-12-26", "2023-12-20", "2023-12-25", "2023-12-19"]
+        regisDate = a[Math.floor(Math.random() * 5)];
+      }
+
+      if (status == "Đã đến điểm GD nhận") {
+        status = "Chưa tạo đơn";
+      } else {
+        status = "Đã tạo đơn";
+      }
+    return {id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
+    cost, status, regisDate/*, startGDpoint, startTKpoint, endTKpoint, endGDpoint*/ };
+  }
 
   useEffect(() => {
     if (data) {
@@ -117,32 +112,25 @@ const DeliveryCreate = () => {
     }
   }, [data]);
 
-  function createData(id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
-    cost, status, regisDate) {
-    return {id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
-    cost, status, regisDate/*, startGDpoint, startTKpoint, endTKpoint, endGDpoint*/ };
-  }
-
-  const defaultForm = {
-    id: "",
-    createDate: "",
-    counts: 0,
-    GDpoint: center,
-    details: "",
+  const genId = async () => {
+    try {
+      const count = await dexieDB.delivery.count();
+      const newId = `D${count.toString().padStart(3, "0")}`;
+      setDeliveryBill((values) => ({ ...values, id: newId }));
+    } catch (error) {
+      console.error("Lỗi khi lấy số lượng bản ghi: ", error);
+    }
+    
   };
-  const [deliveryBill, setDeliveryBill] = useState(defaultForm);
+  useEffect(() => {
+    //genId();
+    const count = Math.floor(Math.random() * 101) + 100;
+    const newId = `D${count.toString().padStart(3, "0")}`;
+    setDeliveryBill((values) => ({ ...values, id: newId }));
+    return;
+  }, [openDeliveryForm])
 
-  const [selectedOrderDetails, setSelectedOrderDetails] = useState([]);
-  const [selectedOrders, setSelectedOrders] = useState([]);
-  const [openDeliveryForm, setOpenDeliveryForm] = useState(false);
-  const [openDetailsOrder, setOpenDetailsOrder] = useState(false);
-  const [selectedOrderID, setSelectedOrderID] = useState(null);
-
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(null);
-  const [selectedStatus, setSelectedStatus] = useState(null);
-  const [openSnackbar, setOpenSnackbar] = useState(false);
+  
 
   const clickDetailOrder = (order) => {
     setSelectedOrderDetails(order);
@@ -172,28 +160,30 @@ const DeliveryCreate = () => {
     try {
       const newData = {
         ...deliveryBill,
+        GDpoint: center,
         status: "chưa xác nhận"
         //id: "S490",  
       }
-      //thêm vào bảng delivery trong firestore
-      const docRef = doc(fireDB, "delivery", newData.id);
-      setDoc(docRef, newData);
-
+      //thêm vào bảng delivery trong firestore và dexie
+      /*const docRef = doc(fireDB, "delivery", newData.id);
+      setDoc(docRef, newData);*/
+      addDataToFireStoreAndDexie("delivery", newData);
       
       for (let i = 0; i < selectedOrders.length; i++) {
-        //update dexie
-        const data = orders.find(obj => obj.id === selectedOrders[i]);
-        const newData = {...data, status: "Đang giao hàng"};
+        //update dexie orders
+        //const data = orders.find(obj => obj.id === selectedOrders[i]);
+        const newData = { status: "Đang giao hàng"};
         updateDataFromDexieTable("orders", selectedOrders[i], newData);
 
         //update bảng orderHistory
-        const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_5");
-        const querySnapshot = getDoc(docRef);
+        /*const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_5");
+        const querySnapshot = getDoc(docRef);*/
         const newHistoryLine = {
-          ...(await querySnapshot).data(),
           date: deliveryBill.createDate,
+          orderStatus: "Đang giao hàng",
         }
-        setDoc(docRef, newHistoryLine);
+        updateDataFromFireStoreAndDexie("orderHistory", selectedOrders[i]+"_5", 
+        newHistoryLine);
       }
       
       
@@ -205,7 +195,7 @@ const DeliveryCreate = () => {
     
   };
 
-  const formValidate = () => {
+  const formValidate = async() => {
     if (
       deliveryBill.id == "" ||
       deliveryBill.createDate == "" ||
@@ -250,13 +240,7 @@ const DeliveryCreate = () => {
   };
 
   //option cho autocomplete (bộ lọc)
-  const orderID = [
-    { label: "DH123" },
-    { label: "DH124" },
-    { label: "DH125" },
-    { label: "DH126" },
-    { label: "DH127" },
-  ];
+  const orderID = orders.map((order) => ({ label: order.id }));
 
   const year = [
     { label: 2020 },
@@ -313,7 +297,7 @@ const DeliveryCreate = () => {
   };
 
   const filteredOrders = orders.filter((order) => {
-    const formattedRegisDate = formatTime(order.regisDate);
+    const formattedRegisDate = new Date(order.regisDate);//formatTime(order.regisDate);
     return (
       (!selectedOrderID || order.id === selectedOrderID.label) &&
       /*(!selectedTransactionPoint ||
@@ -325,14 +309,13 @@ const DeliveryCreate = () => {
       (!selectedYear ||
         formattedRegisDate.getFullYear() === parseInt(selectedYear.label)) &&
       (!selectedStatus ||
-        (order.confirmed ? "Đã tạo đơn" : "Chưa tạo đơn") ===
-          selectedStatus.label)
+        order.status  === selectedStatus.label)
     );
   });
 
   const [sortConfig, setSortConfig] = useState({
-    key: null,
-    direction: "ascending",
+    key: "status",
+    direction: "asc",
   });
 
   // Sorting function
@@ -374,17 +357,7 @@ const DeliveryCreate = () => {
             )}
           />
         </Grid>
-        {/*<Grid item xs={12} sm={6} md={2} lg={2}>
-          <Autocomplete
-            disablePortal
-            options={transactionPointList}
-            value={selectedTransactionPoint}
-            onChange={handleTransactionPointChange}
-            renderInput={(params) => (
-              <TextField {...params} label="Điểm tập kết" />
-            )}
-            />
-        </Grid>*/}
+        
         <Grid item xs={12} sm={6} md={2} lg={2}>
           <Autocomplete
             disablePortal
@@ -426,7 +399,7 @@ const DeliveryCreate = () => {
               />
             )}
           />
-        </Grid>
+            </Grid> 
       </Grid>
 
       <Table>
@@ -510,8 +483,12 @@ const DeliveryCreate = () => {
             </TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>
-          {getSortedData(filteredOrders).map((order) => (
+
+        {filteredOrders && filteredOrders.length > 0 && (       
+        <TableBody>   
+          {getSortedData(filteredOrders)
+          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+          .map((order) => (
             <TableRow
               key={order.id}
               sx={{
@@ -531,8 +508,8 @@ const DeliveryCreate = () => {
               <TableCell>{order.id}</TableCell>
               <TableCell>{order.type}</TableCell>
               <TableCell>{order.weight}</TableCell>
-              {/*<TableCell>{order.transactionPoint}</TableCell>*/}
-              <TableCell>{order.regisDate}</TableCell>
+             
+              <TableCell>{order.regisDate || ""}</TableCell>
               <TableCell>
                 <IconButton
                   onClick={() => clickDetailOrder(order)}
@@ -544,8 +521,18 @@ const DeliveryCreate = () => {
               <TableCell>{order.status}</TableCell>
             </TableRow>
           ))}
+            
         </TableBody>
+        )}
       </Table>
+
+      <Box mt={2} mb={2} display="flex" justifyContent="flex-end">
+        <Pagination
+          count={Math.ceil(filteredOrders.length / rowsPerPage)}
+          page={page + 1}
+          onChange={(event, newPage) => setPage(newPage - 1)}
+        />
+      </Box>
 
       <Box mt={2} mb={2}>
         <Button
@@ -558,6 +545,8 @@ const DeliveryCreate = () => {
           Tạo đơn
         </Button>
       </Box>
+
+      
 
       <DeliveryFormDialog
         open={openDeliveryForm}

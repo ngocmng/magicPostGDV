@@ -35,7 +35,7 @@ function App() {
       //logPackageDataFromDexieDB();
     });
     return () => listener();
-  }, []);
+  });
 
   useEffect(() => {
     const listener = onSnapshot(collection(fireDB, "TKsystem"), (snapshot) => {
@@ -52,7 +52,8 @@ function App() {
       //logPackageDataFromDexieDB();
     });
     return () => listener();
-  }, []);
+  });
+  
 
   useEffect(() => {
     const listener = onSnapshot(collection(fireDB, "orders"), (snapshot) => {
@@ -82,7 +83,7 @@ function App() {
       //logPackageDataFromDexieDB();
     });
     return () => listener();
-  }, []);
+  });
 
   useEffect(() => {
     const listener = onSnapshot(
@@ -92,7 +93,7 @@ function App() {
           const systemDoc = system.doc;
           const systemData = systemDoc.data();
           await dexieDB.table("orderHistory").put({
-            id: systemData.historyID,
+            historyID: systemData.historyID,
             orderID: systemData.orderID,
             date: systemData.date,
             currentLocation: systemData.currentLocation,
@@ -106,7 +107,7 @@ function App() {
       }
     );
     return () => listener();
-  }, []);
+  });
 
   
 
@@ -136,10 +137,34 @@ function App() {
        console.log("data from DexieDB: shipment", dexieDB.table("shipment").toArray());
     });
     return () => listener();
-  }, []);
+  });
+
+  useEffect(() => {
+    const listener = onSnapshot(collection(fireDB, "delivery"), (snapshot) => {
+      snapshot.docChanges().forEach(async (system) => {
+        const systemDoc = system.doc;
+        const systemData = systemDoc.data();
+        await dexieDB.table("delivery").put({
+          id: systemData.id,
+          date: systemData.createDate,
+          counts: systemData.counts,
+          details: systemData.details,
+          GDpoint: systemData.Gdpoint,
+  //        startGDpointName: systemData.startGDpoint,
+  //        startTKpointName: systemData.startTKpoint,
+  //        endTKpointName: systemData.endTKpoint,
+  //        endGDpointName: systemData.endGDpoint,
+          status: systemData.status,
+        });
+        return;
+      });
+      // logPackageDataFromDexieDB();
+       console.log("data from DexieDB: deli", dexieDB.table("delivery").toArray());
+    });
+    return () => listener();
+  });
 
 */
-
 
   
   return (

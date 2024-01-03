@@ -6,14 +6,11 @@ import {
 } from "firebase/firestore";
 
 const dexieDB = new Dexie("cachedUser38");
-dexieDB.version(2).stores({
+dexieDB.version(4).stores({
   GDsystem: "id, name",
   TKsystem: "id, name",
-  //LeadGDacc: "id",
-  //LeadTKacc: "id",
-  //NVTKacc: "id",
-  //GDVacc: "id",
-  orderHistory: "id, orderID",
+  
+  orderHistory: "historyID, orderID, currentLocation",
   orders: "id, status, startGDpoint, endGDpoint",
   shipment: "id, status, startGDpoint, startTKpoint, endTKpoint, endGDpoint",
   delivery: "id, status, GDpoint",

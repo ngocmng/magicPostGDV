@@ -17,11 +17,12 @@ import {
   Paper,
   Typography,
   Snackbar,
+  Pagination
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import ShipmentDialog from "./CreateShipmentDialog";
 import OrderDetailsDialog from "../OrderDetailsDialog";
-import { dexieDB, syncFireStoreToDexie, updateDataFromDexieTable } from "../../database/cache";
+import { addDataToDexieTable, addDataToFireStoreAndDexie, dexieDB,  updateDataFromDexieTable, updateDataFromFireStoreAndDexie } from "../../database/cache";
 import { useLiveQuery } from "dexie-react-hooks";
 import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
 import { fireDB } from "../../database/firebase";
@@ -34,46 +35,26 @@ const TransToTK = () => {
   const data = useLiveQuery(() =>
     dexieDB
       .table("orders")
-      .filter((item) => item.startGDpoint === center && item.status == "Chưa xử lý")
+      .filter((item) => item.startGDpoint == center) //&& item.status == "Chưa xử lý")
       .toArray()
   );
 
-  /*const fetchOrders = async() => {
-    //Fetch từ fireDB
-    /*try {
-      const ordersRef = collection(fireDB, "orders");
-      const orderHistoryRef = collection(fireDB, "orderHistory");
-      const q1 = query (orderHistoryRef, /*where("currentLocation", "==", center), where("orderStatus", "==", "Đang chờ xử lý"));
-      const querySnapshotOrderId = await getDocs(q1);
-      const ordersId = querySnapshotOrderId.docs.map((doc) => (doc.id));
-      const q = query (ordersRef, where("startGDpoint", "==", center), where("id", 'in', ordersId));
-      const querySnapshot = await getDocs(q);
-      fetchOrders = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      //console.log
-    } catch (error) {
-      console.log("Lỗi tải orders: ", error);
-    }*/
-    //fetch từ dexie
-    /*dexieDB.orders.where('id').equals("DH123").toArray()
-      .then( records => {
-          // Thêm các bản ghi vào mảng
-        setFetchedOrders(prev => [...prev, records]);
-        console.log('Dữ liệu trong bảng orders:', fetchedOrders);
-    
-        // Bây giờ mảng recordsArray chứa tất cả các bản ghi từ bảng myTable
-      })
-      .catch(error => {
-        console.error('Lỗi khi truy vấn dữ liệu:', error);
-      });
-  }*/
   const [orders, setOrders] = useState([]);
 
   function createData(id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
     cost, status, regisDate) {
+      if (regisDate == undefined) {
+        const a = ["2023-11-27", "2023-11-26", "2023-11-20", "2023-11-25", "2023-11-19",
+        "2023-11-05", "2023-10-27", "2023-11-23", "2023-11-13", "2023-10-09",
+        "2023-09-20", "2023-09-19"]
+        regisDate = a[Math.floor(Math.random() * 12)];
+      }
+      if (status !== "Chưa xử lý") status = "Đã tạo đơn";
     return {id, senderName, senderPhone, senderAddress, receiverName, receiverPhone, receiverAddress, type, weight,
     cost, status, regisDate/*, startGDpoint, startTKpoint, endTKpoint, endGDpoint*/ };
   }
 
+  
   useEffect(() => {
     if (data) {
       const newRows = data.map((item) => 
@@ -88,13 +69,14 @@ const TransToTK = () => {
             item.type,
             item.weight,
             item.cost,
-            item.status, 
-            item.regisDate)
+            item.status,
+            item.regisDate
+            )
       );
       setOrders(newRows);
     }
-  }, [center]);
-
+    
+  }, [data]);
 
   /*const updatedOrders = data.forEach((order) => ({
     ...order,
@@ -123,7 +105,10 @@ const TransToTK = () => {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
+
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const clickDetailOrder = (order) => {
     setSelectedOrderDetails(order);
@@ -148,6 +133,26 @@ const TransToTK = () => {
     }
   };
 
+  const genId = async () => {
+    try {
+      const lastRecord = await dexieDB.shipment
+      .reverse()
+      .first();
+     
+      const stt = lastRecord ? parseInt(lastRecord.id.substring(1)) : 600;
+      const newId = `S${(stt+1).toString().padStart(3, "0")}`;
+      
+      setShipment((values) => ({ ...values, id: newId }));
+    } catch (error) {
+      console.error("Lỗi khi lấy số lượng bản ghi: ", error);
+    }
+    
+  };
+  useEffect(() => {
+    genId();
+    return;
+  }, [openCreateShipment]);
+
   //Xử lý Xác nhận tạo đơn
   const submit = async() => {
     try {
@@ -159,24 +164,46 @@ const TransToTK = () => {
       //thêm vào bảng shipment trong firestore
       const docRef = doc(fireDB, "shipment", newData.id);
       setDoc(docRef, newData);
+      //thêm vào shipment trong dexie
+      const newDexiData = {
+        id: shipment.shipmentID,
+        date: shipment.createDate,
+        counts: shipment.Counts,
+        ordersList: shipment.details,
+        startGDpoint: shipment.startGDpoint,
+        startTKpoint: shipment.startTKpoint,
+        endTKpoint: shipment.endTKpoint,
+        endGDpoint: shipment.endGDpoint,
+        startGDpointName: shipment.startGDpoint,
+        startTKpointName: shipment.startTKpoint,
+        endTKpointName: shipment.endTKpoint,
+        endGDpointName: shipment.endGDpoint,
+        status: "chưa xác nhận"
+      }
+      addDataToDexieTable ("shipment", newDexiData);
 
       
       for (let i = 0; i < selectedOrders.length; i++) {
-        //update dexie
+        //update dexie bảng orders
         const data = orders.find(obj => obj.id === selectedOrders[i]);
         const newData = {...data, status: "Đang chuyển đến điểm TK gửi"};
-        updateDataFromDexieTable("orders", selectedOrders[i], newData);
+        updateDataFromFireStoreAndDexie("orders", selectedOrders[i], newData);
 
         //update bảng orderHistory
         const docRef = doc(fireDB, "orderHistory", selectedOrders[i]+"_2");
-        const querySnapshot = getDoc(docRef);
+        
         const newHistoryLine = {
+          historyID: selectedOrders[i] + "_2",
+          orderId: selectedOrders[i],
           date: shipment.createDate,
           orderStatus: "Đã tạo đơn",
           currentLocation: diemTK,
           Description: "Chuyển đến điểm " + diemTK,
         }
-        setDoc(docRef, newHistoryLine, {merge: true});
+        setDoc(docRef, newHistoryLine);
+
+        await dexieDB.table("orderHistory")
+          .add({...newData, id: selectedOrders[i] + "_2"});
       }
       
       //
@@ -184,7 +211,7 @@ const TransToTK = () => {
       setOpenSnackbar(true);
       setShipment(defaultForm);
     } catch (error) {
-      console.error('Loi khi add shipment trong fireDB:', error);
+      console.error('Loi khi add shipment:', error);
     }
     
   };
@@ -236,13 +263,7 @@ const TransToTK = () => {
   };
 
   //option cho autocomplete (bộ lọc)
-  const orderID = [
-    { label: "DH123" },
-    { label: "DH124" },
-    { label: "DH125" },
-    { label: "DH126" },
-    { label: "DH127" },
-  ];
+  const orderID = orders.map((order) => ({ label: order.id }));
 
   const year = [
     { label: 2020 },
@@ -250,7 +271,7 @@ const TransToTK = () => {
     { label: 2022 },
     { label: 2023 },
   ];
-  const status = [{ label: "Chưa tạo đơn" }, { label: "Đã tạo đơn" }];
+  const status = [{ label: "Chưa xử lý" }, { label: "Đã tạo đơn" }];
   const createArray = (start, end) => {
     let array = [];
     for (let i = start; i <= end; i++) {
@@ -299,11 +320,10 @@ const TransToTK = () => {
   };
 
   const filteredOrders = orders.filter((order) => {
-    const formattedRegisDate = order.regisDate; //formatTime(order.regisDate);
+    const formattedRegisDate = new Date(order.regisDate); //formatTime(order.regisDate);
     return (
       (!selectedOrderID || order.id === selectedOrderID.label) &&
-      /*(!selectedTransactionPoint ||
-        order.transactionPoint === selectedTransactionPoint.label) &&*/
+      
       (!selectedDate ||
         formattedRegisDate.getDate() === parseInt(selectedDate.label)) &&
       (!selectedMonth ||
@@ -311,14 +331,13 @@ const TransToTK = () => {
       (!selectedYear ||
         formattedRegisDate.getFullYear() === parseInt(selectedYear.label)) &&
       (!selectedStatus ||
-        (order.confirmed ? "Đã tạo đơn" : "Chưa tạo đơn") ===
-          selectedStatus.label)
+        order.status  === selectedStatus.label)
     );
   });
 
   const [sortConfig, setSortConfig] = useState({
-    key: null,
-    direction: "ascending",
+    key: "status",
+    direction: "asc",
   });
 
   // Sorting function
@@ -402,7 +421,7 @@ const TransToTK = () => {
               />
             )}
           />
-        </Grid>
+            </Grid> 
       </Grid>
 
       <Table>
@@ -449,18 +468,7 @@ const TransToTK = () => {
                 onClick={() => sortData("weight")}
               />
             </TableCell>
-            {/*<TableCell>
-              <strong>Từ điểm giao dịch</strong>
-              <TableSortLabel
-                active={sortConfig.key === "transactionPoint"}
-                direction={
-                  sortConfig.key === "transactionPoint"
-                    ? sortConfig.direction
-                    : "asc"
-                }
-                onClick={() => sortData("transactionPoint")}
-              />
-            </TableCell>*/}
+            
             <TableCell>
               <strong>Ngày gửi</strong>
               <TableSortLabel
@@ -487,7 +495,9 @@ const TransToTK = () => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {getSortedData(filteredOrders).map((order) => (
+          {getSortedData(filteredOrders)
+          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+          .map((order) => (
             <TableRow
               key={order.id}
               sx={{
@@ -508,7 +518,7 @@ const TransToTK = () => {
               <TableCell>{order.type}</TableCell>
               <TableCell>{order.weight}</TableCell>
               
-              <TableCell>{order.regisDate}</TableCell>
+              <TableCell>{order.regisDate || ""}</TableCell>
               <TableCell>
                 <IconButton
                   onClick={() => clickDetailOrder(order)}
@@ -522,6 +532,14 @@ const TransToTK = () => {
           ))}
         </TableBody>
       </Table>
+
+      <Box mt={2} mb={2} display="flex" justifyContent="flex-end">
+        <Pagination
+          count={Math.ceil(filteredOrders.length / rowsPerPage)}
+          page={page + 1}
+          onChange={(event, newPage) => setPage(newPage - 1)}
+        />
+      </Box>
 
       <Box mt={2} mb={2}>
         <Button

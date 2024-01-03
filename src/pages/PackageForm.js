@@ -8,6 +8,8 @@ import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormControl from "@mui/material/FormControl";
 import InputAdornment from "@mui/material/InputAdornment";
+import InputLabel from "@mui/material/InputLabel";
+import Autocomplete from "@mui/material/Autocomplete";
 import { useState } from "react";
 import { useEffect, useRef } from "react";
 /*import Table from '@mui/material/Table';
@@ -63,8 +65,12 @@ export default function PackageForm() {
 
   const genId = async () => {
     try {
-      const count = await dexieDB.orders.count();
-      const newId = `DH${count.toString().padStart(3, "0")}`;
+      const lastRecord = await dexieDB.orders
+      .reverse()
+      .first();
+     
+      const stt = lastRecord ? parseInt(lastRecord.id.substring(2)) : 600;
+      const newId = `DH${(stt+1).toString().padStart(3, "0")}`;
       setInputs((values) => ({ ...values, id: newId }));
     } catch (error) {
       console.error("Lỗi khi lấy số lượng bản ghi: ", error);
@@ -93,7 +99,7 @@ export default function PackageForm() {
   useEffect(() => {
     genId();
     return;
-  }, [])
+  }, [view]);
 
   
   const handleBack = () => {
@@ -109,7 +115,7 @@ export default function PackageForm() {
 
   const calculateCost = (weight, distance) => {
     if (isNaN(weight) || isNaN(distance)) return "";
-    else return weight * distance * 1000;
+    else return weight * distance * 10000;
   };
 
   const handleDateChange = (event) => {
@@ -126,34 +132,39 @@ export default function PackageForm() {
   };
 
   const handleReceiverAddressChange = (event) => {
+    setDistance(Math.floor(Math.random() * 5) + 1);
+    setInputs((values) => ({
+      ...values,
+      cost: Math.round(calculateCost(inputs.weight, distance)),
+    }));
+
     const reAddr = event.target.value;
     setInputs((values) => ({ ...values, receiverAddress: reAddr }));
     const splitAddr = reAddr.split(", ");
-    let city = splitAddr[splitAddr.length - 1];
-    let district = splitAddr[splitAddr.length - 2];
-
-    dexieDB.GDsystem.where("name")
-      .equals(district)
-      .first()
-      .then((record) => {
-        if (record) {
-          setInputs((values) => ({ ...values, endGDpoint: record.id }));
-        }
-      });
-    dexieDB.TKsystem.where("name")
-      .equals(city)
-      .first()
-      .then((record) => {
-        if (record) {
-          setInputs((values) => ({ ...values, endTKpoint: record.id }));
-        }
-      });
-
-    setDistance(parseInt(inputs.endGDpoint.substring(2)));
-    setInputs((values) => ({
-      ...values,
-      cost: calculateCost(inputs.weight, distance),
-    }));
+    if (splitAddr.length >= 2) {
+      let city = splitAddr[splitAddr.length - 1];
+      let district = splitAddr[splitAddr.length - 2];
+  
+      dexieDB.GDsystem.where("name")
+        .equals(district)
+        .first()
+        .then((record) => {
+          if (record) {
+            setInputs((values) => ({ ...values, endGDpoint: record.id }));
+          }
+        });
+      dexieDB.TKsystem.where("name")
+        .equals(city)
+        .first()
+        .then((record) => {
+          if (record) {
+            setInputs((values) => ({ ...values, endTKpoint: record.id }));
+          }
+        });
+  
+    }
+    
+    
   };
 
   
@@ -175,11 +186,11 @@ export default function PackageForm() {
           status: "Chưa xử lý",
         };
         //Thêm vào bảng orders trong FireStore
-        /*const docRef = doc(fireDB, "orders", newData.id);
-        setDoc(docRef, newData);*/
+        const docRef = doc(fireDB, "orders", newData.id);
+        setDoc(docRef, newData);
       
         //Thêm vào bảng orders trong dexie và firestore
-        addDataToFireStoreAndDexie("orders", newData);
+        addDataToDexieTable("orders", {...newData, regisDate});
 
         //setInputs(defaultForm);
       } catch (error) {
@@ -189,14 +200,6 @@ export default function PackageForm() {
 
       //Thêm vào orderHistory trong firestore
       try {
-        const t = {//các trường ngoại trừ id
-          orderId: inputs.id,
-          date: 0,
-          currentLocation: 0,
-          orderStatus: 0,
-          Description: 0,
-        }
-
         const orderHistory1 = {
           historyID: inputs.id + "_1",
           orderId: inputs.id,
@@ -205,39 +208,12 @@ export default function PackageForm() {
           orderStatus: "Đang chờ xử lý",
           Description: "Đơn hàng nhận tại điểm giao dịch " + center,
         };
-        const orderHistory2 = {
-          ...t,
-          historyID: inputs.id + "_2",
-        };
-        const orderHistory3 = {
-          ...t,
-          historyID: inputs.id + "_3",
-        };
-        const orderHistory4 = {
-          ...t,
-          historyID: inputs.id + "_4",
-        };
-        const orderHistory5 = {
-          ...t,
-          historyID: inputs.id + "_5",
-        };
-
+        
         const docRef1 = doc(fireDB, "orderHistory", orderHistory1.historyID);
         setDoc(docRef1, orderHistory1);
-        const docRef2 = doc(fireDB, "orderHistory", orderHistory2.historyID);
-        setDoc(docRef2, orderHistory2);
-        const docRef3 = doc(fireDB, "orderHistory", orderHistory3.historyID);
-        setDoc(docRef3, orderHistory3);
-        const docRef4 = doc(fireDB, "orderHistory", orderHistory4.historyID);
-        setDoc(docRef4, orderHistory4);
-        const docRef = doc(fireDB, "orderHistory", orderHistory5.historyID);
-        setDoc(docRef, orderHistory5);
 
         addDataToDexieTable("orderHistory", {...orderHistory1, id: inputs.id + "_1"});
-        addDataToDexieTable("orderHistory", {...t, id: inputs.id + "_2"});
-        addDataToDexieTable("orderHistory", {...t, id: inputs.id + "_3"});
-        addDataToDexieTable("orderHistory", {...t, id: inputs.id + "_4"});
-        addDataToDexieTable("orderHistory", {...t, id: inputs.id + "_5"});
+
 
         alert("Tạo đơn hàng thành công");
         setView("Print");
@@ -269,7 +245,7 @@ export default function PackageForm() {
 
       if (error === 0) submit();
     };
-    
+
     formValidate();
   };
 
@@ -292,36 +268,44 @@ export default function PackageForm() {
             noValidate
             autoComplete="off"
           >
-            <label>Thời gian ghi nhận:</label>
+            
             <Stack direction="row" spacing={2}>
+              <TextField
+              required
+              name="id"
+              label="Mã đơn hàng"
+              fullWidth
+              value={inputs.id}
+              onChange={handleChange}
+              />
               <TextField
                 required
                 name="regisDate"
                 type="date"
-                size="small"
+                fullWidth
                 value={regisDate || ""}
                 onChange={handleDateChange}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <InputLabel htmlFor="date">Ngày tạo</InputLabel>
+                    </InputAdornment>
+                  ),
+                }}
               ></TextField>
-              {/*<TextField required 
-              name="regisTime"
-              type="time" 
-              size="small" 
-              value={inputs.regisTime || ""}
-              onChange={handleChange}>
-              </TextField>*/}
+              
             </Stack>
-            <TextField
-              required
-              name="id"
-              label="Mã đơn hàng"
-              value={inputs.id}
-              onChange={handleChange}
-            />
+            <Stack direction="row" spacing={2}>
+            
             {/*Thông tin về 4 điểm GD/TK gửi nhận mà bưu gửi đi qua*/}
             <TextField
               required
               name="startGDpoint"
               label="Điểm giao dịch gửi"
+              fullWidth
               value={inputs.startGDpoint}
               onChange={handleChange}
             />
@@ -330,6 +314,7 @@ export default function PackageForm() {
               required
               name="startTKpoint"
               label="Điểm tập kết gửi"
+              fullWidth
               value={inputs.startTKpoint}
               onChange={handleChange}
             />
@@ -338,6 +323,7 @@ export default function PackageForm() {
               required
               name="endTKpoint"
               label="Điểm tập kết nhận"
+              fullWidth
               value={inputs.endTKpoint}
               onChange={handleChange}
             />
@@ -346,9 +332,11 @@ export default function PackageForm() {
               required
               name="endGDpoint"
               label="Điểm giao dịch nhận"
+              fullWidth
               value={inputs.endGDpoint}
               onChange={handleChange}
             />
+            </Stack>
 
             {/*Thông tin về người gửi*/}
             <h3>Thông tin người gửi</h3>
@@ -451,7 +439,7 @@ export default function PackageForm() {
                 <TextField
                   required
                   name="cost"
-                  label="Giá trị hàng"
+                  label="Giá cước"
                   type="number"
                   InputProps={{
                     startAdornment: (
@@ -470,7 +458,7 @@ export default function PackageForm() {
             </Button>
           </Box>
 
-          <Box></Box>
+          
         </>
       )}
     </>
